@@ -11,7 +11,7 @@ namespace Payload.Command.WallPaper
 {
     public class WallpaperEngineCommand : ICommand
     {
-        private readonly static long _defaultInterval = 60;
+        private readonly static long _defaultInterval = 60 * 1000;
 
         public EnumWallpaperEngine.Mode CurrentMode { get; set; } = EnumWallpaperEngine.Mode.NONE;
 
@@ -96,7 +96,7 @@ namespace Payload.Command.WallPaper
 
         private TimeSpan GetDefaultInterval()
         {
-            return new TimeSpan(_defaultInterval);
+            return TimeSpan.FromMilliseconds(_defaultInterval);
         }
 
         #region Wallpaper System

@@ -66,7 +66,7 @@ namespace Payload.Command.WallPaper
                 switch (CurrentMode)
                 {
                     case EnumWallpaperEngine.Mode.AUTO:
-                        DisplayPictureAsync(DrawPhoto());
+                        DisplayPicture(DrawPhoto());
                         break;
                     case EnumWallpaperEngine.Mode.MANUAL:
                         interval = GetDefaultInterval(); // Wait For Manual action ...
@@ -109,7 +109,7 @@ namespace Payload.Command.WallPaper
         private const uint SPIF_UPDATEINIFILE = 0x1;
         private const uint SPIF_SENDWININICHANGE = 0x2;
 
-        private void DisplayPictureAsync(string _fileName)
+        private void DisplayPicture(string _fileName)
         {
             if (string.IsNullOrEmpty(_fileName))
                 return;

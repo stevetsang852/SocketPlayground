@@ -11,12 +11,12 @@ namespace Payload.Command
     {
         public ICommand Command { get; private set; }
         public Task Task { get; private set; }
-        public bool ShouldRunning { get; private set; }
+        public bool ShouldCallRun { get; private set; }
         public TaskPack(ICommand command)
         {
             Command = command;
             Task = null;
-            ShouldRunning = true;
+            ShouldCallRun = true;
         }
 
         public bool SetCurrentTask(Task task)
@@ -31,7 +31,7 @@ namespace Payload.Command
         {
             if (Command == null)
                 return false;
-            ShouldRunning = false;
+            ShouldCallRun = false;
             Command.Pause = false;
             Task _t = Command.Execute();
             SetCurrentTask(_t);
@@ -40,14 +40,14 @@ namespace Payload.Command
 
         public bool Pause()
         {
-            ShouldRunning = true;
+            ShouldCallRun = true;
             Command.Pause = true;
             return true;
         }
 
         public bool Stop()
         {
-            ShouldRunning = false;
+            ShouldCallRun = false;
             Command.Pause = true;
             try
             {
@@ -116,10 +116,9 @@ namespace Payload.Command
             {
                 TaskPack _tp = taskPack.Value;
                 if(_tp.Task!=null)
-                if (!_tp.ShouldRunning || _tp.Task.Status.Equals(TaskStatus.Running))
-                    continue;
+                    if (!_tp.ShouldCallRun || _tp.Task.Status.Equals(TaskStatus.Running))
+                        continue;
                 _tp.Start();
-
             }
         }
     }

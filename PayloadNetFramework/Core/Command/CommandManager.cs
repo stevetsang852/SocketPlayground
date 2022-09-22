@@ -44,6 +44,7 @@ namespace Payload.Command
             ShouldRunning = false;
             Command.Pause = true;
             Command.TokenSource.Cancel();
+            Task = null;
         }
     }
 
@@ -100,9 +101,9 @@ namespace Payload.Command
             foreach (var taskPack in TaskMap)
             {
                 TaskPack _tp = taskPack.Value;
-                if ( _tp.Task==null || 
-                    (_tp.ShouldRunning && !_tp.Task.Status.Equals(TaskStatus.Running))
-                    )
+                if (!_tp.ShouldRunning || _tp.Task.Status.Equals(TaskStatus.Running))
+                    continue;
+                if ( _tp.Task==null)
                 {
                     Task _t = _tp.Command.Execute();
                     _tp.SetCurrentTask(_t);

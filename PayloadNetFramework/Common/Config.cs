@@ -42,6 +42,10 @@ namespace Payload.Common
 
         #region Global
         public string WorkSpaceDir;
+        public int MainSleepInterval = 60 * 1000;
+        #endregion
+
+        #region Class CommandManager
 
         #endregion
 

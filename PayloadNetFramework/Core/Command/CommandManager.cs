@@ -34,8 +34,11 @@ namespace Payload.Command
                 return false;
             ShouldCallRun = false;
             Command.Pause = false;
-            Task _t = Command.Execute();
-            SetCurrentTask(_t);
+            if (Task == null)
+            {
+                Task _t = Command.Execute();
+                SetCurrentTask(_t);
+            }            
             return true;
         }
 
@@ -104,6 +107,13 @@ namespace Payload.Command
                 return false;
             TaskMap.Add(_key, _tp);
             return true;
+        }
+
+        public TaskPack GetTaskPack(Common.Config.EnumTask _key)
+        {
+            TaskPack taskPack = null;
+            TaskMap.TryGetValue(_key, out taskPack);
+            return taskPack;
         }
 
         public void SetTaskMap(Dictionary<Payload.Common.Config.EnumTask, TaskPack> _map)

@@ -82,6 +82,14 @@ namespace Payload.Command
             TaskMap.Add(Common.Config.EnumTask.WallpaperEngine, new Payload.Command.WallPaper.WallpaperEngineFactory().CreateTaskPack());
         }
 
+        public bool AddTaskPack(Common.Config.EnumTask _key, TaskPack _tp)
+        {
+            if (TaskMap.ContainsKey(_key))
+                return false;
+            TaskMap.Add(_key, _tp);
+            return true;
+        }
+
         public void SetTaskMap(Dictionary<Payload.Common.Config.EnumTask, TaskPack> _map)
         {
             TaskMap = _map;

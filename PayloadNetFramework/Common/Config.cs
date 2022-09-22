@@ -36,7 +36,8 @@ namespace Payload.Common
         #region Enum
         public enum EnumTask
         {
-            WallpaperEngine
+            WallpaperEngine,
+            TcpClient
         }
         #endregion
 

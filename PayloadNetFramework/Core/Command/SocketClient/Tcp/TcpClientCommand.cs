@@ -7,7 +7,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Quobject.SocketIoClientDotNet.Client;
 
 namespace Payload.Command.SocketClient
 {
@@ -22,20 +21,7 @@ namespace Payload.Command.SocketClient
         {
             try
             {
-                var socket = IO.Socket("http://192.168.88.240:5000");
-                socket.Connect();
-                socket.On(Socket.EVENT_CONNECT, () =>
-                {
-                    socket.Emit("message");
-                    socket.Send("123");
-                });
-
-                socket.On("message", (data) =>
-                {
-                    Console.WriteLine(data);
-                    //socket.Disconnect();
-                });
-                Console.ReadLine();
+                
             }
             catch(Exception e)
             {

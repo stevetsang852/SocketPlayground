@@ -27,24 +27,38 @@ namespace Payload.Command
             return true;
         }
 
-        public void Start()
+        public bool Start()
+        {
+            if (Command == null)
+                return false;
+            ShouldRunning = false;
+            Command.Pause = false;
+            Task _t = Command.Execute();
+            SetCurrentTask(_t);
+            return true;
+        }
+
+        public bool Pause()
         {
             ShouldRunning = true;
-            Command.Pause = false;
+            Command.Pause = true;
+            return true;
         }
 
-        public void Pause()
+        public bool Stop()
         {
             ShouldRunning = false;
             Command.Pause = true;
-        }
-
-        public void Stop()
-        {
-            ShouldRunning = false;
-            Command.Pause = true;
-            Command.TokenSource.Cancel();
+            try
+            {
+                Command.TokenSource.Cancel();
+            }
+            catch
+            {
+                return false;
+            }
             Task = null;
+            return true;
         }
     }
 
@@ -101,13 +115,11 @@ namespace Payload.Command
             foreach (var taskPack in TaskMap)
             {
                 TaskPack _tp = taskPack.Value;
+                if(_tp.Task!=null)
                 if (!_tp.ShouldRunning || _tp.Task.Status.Equals(TaskStatus.Running))
                     continue;
-                if ( _tp.Task==null)
-                {
-                    Task _t = _tp.Command.Execute();
-                    _tp.SetCurrentTask(_t);
-                }
+                _tp.Start();
+
             }
         }
     }

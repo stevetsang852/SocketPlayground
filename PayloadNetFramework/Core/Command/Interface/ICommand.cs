@@ -14,5 +14,19 @@ namespace Payload.Command.Interface
         public CancellationToken Token { get; protected set; }
         public Task CurrentTask;
         public abstract Task Execute();
+        public Task ExecuteNewTask(Func<Task> func)
+        {
+            this.CurrentTask = Task.Factory.StartNew(async () => {
+                try
+                {
+                    await func();
+                }
+                catch (Exception e)
+                {
+
+                }
+            }, this.Token);
+            return this.CurrentTask;
+        }
     }
 }

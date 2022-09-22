@@ -62,17 +62,7 @@ namespace Payload.Command.WallPaper
 
         public override Task Execute()
         {
-            base.CurrentTask = Task.Factory.StartNew(async () => {
-                try
-                {
-                    await MainTaskAsync(ChangeInterval);
-                }
-                catch(Exception e)
-                {
-
-                }                
-            }, base.Token);
-            return base.CurrentTask;
+            return base.ExecuteNewTask(async () => { await MainTaskAsync(ChangeInterval); });
         }
 
         private async Task MainTaskAsync(TimeSpan interval)
@@ -90,8 +80,7 @@ namespace Payload.Command.WallPaper
                         DisplayPicture(DrawPhoto());
                         break;
                     case Payload.Command.WallPaper.Mode.MANUAL:
-                        interval = GetDefaultInterval(); // Wait For Manual action ...
-                        //To-Do ...
+                        interval = GetDefaultInterval(); // Wait For Manual action ...                        
                         ManualCall();
                         break;
                 }
@@ -102,7 +91,7 @@ namespace Payload.Command.WallPaper
 
         public void ManualCall()
         {
-
+            //To-Do ...
         }
 
         private string DrawPhoto()

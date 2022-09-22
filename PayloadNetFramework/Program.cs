@@ -15,7 +15,7 @@ namespace Payload
             while (true)
             {
                 Command.CommandManager.Instance.Run();
-                Thread.Sleep(Config.Instance.MainSleepInterval);                
+                Thread.Sleep(Config.Instance.MainSleepInterval);
             }
         }
     }

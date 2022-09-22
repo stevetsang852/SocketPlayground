@@ -11,11 +11,10 @@ namespace Payload
     {
         static void Main(string[] args)
         {
-            new Payload.Command.WallPaper.WallpaperEngineCommand(1000).Execute(); // TEST 1 secord to change wallpaper
             while (true)
             {
-                Thread.Sleep(1000 * 60);
-                // To-Do ...
+                Command.CommandManager.Instance.Run();
+                Thread.Sleep(1000 * 60);                
             }
         }
     }

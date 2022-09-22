@@ -9,12 +9,18 @@ using System.Threading.Tasks;
 
 namespace Payload.Command.WallPaper
 {
-    public class WallpaperEngineCommand : ICommand
+    public enum Mode
+    {
+        NONE,
+        AUTO,
+        MANUAL
+    }
+    public class WallpaperEngineCommand : Payload.Command.Interface.ICommand
     {
         private readonly static long _defaultInterval = 60 * 1000;
 
-        public EnumWallpaperEngine.Mode CurrentMode { get; set; } = EnumWallpaperEngine.Mode.NONE;
-
+        public Payload.Command.WallPaper.Mode CurrentMode { get; set; } = Payload.Command.WallPaper.Mode.NONE;
+        
         public FileInfo[] imgList { get; private set; }
         public string currentPhoto;
         public TimeSpan ChangeInterval;
@@ -41,7 +47,9 @@ namespace Payload.Command.WallPaper
         {
             try
             {
-                CurrentMode = ChangeInterval.Ticks > 0 ? EnumWallpaperEngine.Mode.AUTO : EnumWallpaperEngine.Mode.MANUAL;
+                base.TokenSource = new CancellationTokenSource();
+                base.Token = TokenSource.Token;
+                CurrentMode = ChangeInterval.Ticks > 0 ? Payload.Command.WallPaper.Mode.AUTO : Payload.Command.WallPaper.Mode.MANUAL;
                 string workSpaceDir = Directory.GetCurrentDirectory();
                 DirectoryInfo imgDir = new DirectoryInfo($"{workSpaceDir}\\Resources\\Image\\Wallpaper");
                 imgList = imgDir.GetFiles();
@@ -52,30 +60,49 @@ namespace Payload.Command.WallPaper
             }
         }
 
-        public void Execute()
+        public override Task Execute()
         {
-            Task.Factory.StartNew(async () => {
-                await MainTaskAsync(ChangeInterval, new CancellationToken());
-            });
+            base.CurrentTask = Task.Factory.StartNew(async () => {
+                try
+                {
+                    await MainTaskAsync(ChangeInterval);
+                }
+                catch(Exception e)
+                {
+
+                }                
+            }, base.Token);
+            return base.CurrentTask;
         }
 
-        private async Task MainTaskAsync(TimeSpan interval, CancellationToken cancellationToken = default)
+        private async Task MainTaskAsync(TimeSpan interval)
         {
-            while (true)
-            {
+            while (!base.Token.IsCancellationRequested)
+            {                
+                if (base.Token.IsCancellationRequested)
+                    base.Token.ThrowIfCancellationRequested();
+                Task.Delay(interval, base.Token).Wait();
+                if (base.Pause)                    
+                    continue;
                 switch (CurrentMode)
                 {
-                    case EnumWallpaperEngine.Mode.AUTO:
+                    case Payload.Command.WallPaper.Mode.AUTO:
                         DisplayPicture(DrawPhoto());
                         break;
-                    case EnumWallpaperEngine.Mode.MANUAL:
+                    case Payload.Command.WallPaper.Mode.MANUAL:
                         interval = GetDefaultInterval(); // Wait For Manual action ...
                         //To-Do ...
+                        ManualCall();
                         break;
                 }
-                Task.Delay(interval, cancellationToken).Wait();
+                
                 //Thread.Sleep(interval);
             }
+        }
+
+        public void ManualCall()
+        {
+
         }
 
         private string DrawPhoto()

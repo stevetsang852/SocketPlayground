@@ -4,15 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Payload.Command.WallPaper
+namespace Payload.Common
 {
-    public class EnumWallpaperEngine
+    public class Config
     {
-        public enum Mode
+        public enum EnumTask
         {
-            NONE,
-            AUTO,
-            MANUAL
+            WallpaperEngine
         }
     }
 }

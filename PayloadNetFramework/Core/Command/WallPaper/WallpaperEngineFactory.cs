@@ -1,4 +1,5 @@
 ﻿using Payload.Command.Interface;
+using Payload.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +12,7 @@ namespace Payload.Command.WallPaper
     {
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new WallpaperEngineCommand(1000));
+            return new TaskPack(new WallpaperEngineCommand(Config.Instance.WallpaperEngineFactoryInitInterval));
         }
     }
 }

@@ -50,7 +50,7 @@ namespace Payload.Command
     public class CommandManager
     {
         #region Singleton
-        CommandManager() 
+        private CommandManager() 
         {
             Init();
         }

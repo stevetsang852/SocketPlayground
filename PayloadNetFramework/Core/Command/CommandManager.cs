@@ -98,7 +98,7 @@ namespace Payload.Command
         private void Init()
         {
             TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
-            TaskMap.Add(Common.Config.EnumTask.TcpClient, new TcpClientFactory().CreateTaskPack());
+            TaskMap.Add(Common.Config.EnumTask.TcpClient, new SocketIOClientFactory().CreateTaskPack());
         }
 
         public bool AddTaskPack(Common.Config.EnumTask _key, TaskPack _tp)

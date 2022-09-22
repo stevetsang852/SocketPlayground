@@ -8,11 +8,11 @@ using System.Threading.Tasks;
 
 namespace Payload.Command.SocketClient
 {
-    public class TcpClientFactory : Payload.Command.Interface.IFactory
+    public class SocketIOClientFactory : Payload.Command.Interface.IFactory
     {
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new TcpClientCommand());
+            return new TaskPack(new SocketIOClientCommand());
         }
     }
 }

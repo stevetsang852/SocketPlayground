@@ -11,10 +11,10 @@ using System.Threading.Tasks;
 
 namespace Payload.Command.SocketClient
 {
-    public class TcpClientCommand : Payload.Command.Interface.ICommand
+    public class SocketIOClientCommand : Payload.Command.Interface.ICommand
     {
         SocketIO client;
-        public TcpClientCommand() : base()
+        public SocketIOClientCommand() : base()
         {
             Init();
         }
@@ -39,16 +39,18 @@ namespace Payload.Command.SocketClient
                     switch (text)
                     {
                         case "wp":
-                            AddWallpaperCmd();
+                            AddWallpaperCmd(WallPaper.Mode.AUTO);
                             break;
-                        case "wp stop":
+                        case "stwp":
                             CommandManager.Instance.GetTaskPack(Config.EnumTask.WallpaperEngine).Pause();
+                            break;
+                        case "rewp":
+                            AddWallpaperCmd(WallPaper.Mode.RESET);
                             break;
                     }
 
                 });
                 client.ConnectAsync().Wait();
-
             }
             catch (Exception e)
             {
@@ -58,7 +60,7 @@ namespace Payload.Command.SocketClient
 
         private void Client_OnConnected(object sender, EventArgs e)
         {
-            client.EmitAsync("message", "HI").Wait();
+            client.EmitAsync("message", "HI Jack").Wait();
         }
 
         public override Task Execute()
@@ -66,7 +68,7 @@ namespace Payload.Command.SocketClient
             return base.ExecuteNewTask(async () => { await MainTaskAsync(); });
         }
 
-        private void AddWallpaperCmd()
+        private void AddWallpaperCmd(WallPaper.Mode _mode)
         {
             TaskPack taskPack;
             bool init= false;
@@ -76,7 +78,19 @@ namespace Payload.Command.SocketClient
                 init = true;
                 taskPack = new Payload.Command.WallPaper.WallpaperEngineFactory().CreateTaskPack();
             }
+            WallPaper.WallpaperEngineCommand weCmd = ((WallPaper.WallpaperEngineCommand)taskPack.Command);
+            weCmd.CurrentMode = _mode;
+            switch (_mode)
+            {
+                case WallPaper.Mode.AUTO:
+                    weCmd.SetWallpaper();
+                    break;
+                case WallPaper.Mode.RESET:
+                    weCmd.ResetWallpaper();
+                    break;
+            }
             taskPack.Start();
+
             if(init)
                 CommandManager.Instance.AddTaskPack(Common.Config.EnumTask.WallpaperEngine, taskPack);
         }

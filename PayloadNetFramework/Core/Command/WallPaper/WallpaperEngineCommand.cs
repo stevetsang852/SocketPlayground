@@ -1,4 +1,5 @@
-﻿using Payload.Common;
+﻿using Microsoft.Win32;
+using Payload.Common;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +15,8 @@ namespace Payload.Command.WallPaper
     {
         NONE,
         AUTO,
-        MANUAL
+        MANUAL,
+        RESET
     }
     public class WallpaperEngineCommand : Payload.Command.Interface.ICommand
     {
@@ -25,6 +27,7 @@ namespace Payload.Command.WallPaper
         public FileInfo[] imgList { get; private set; }
         public string currentPhoto;
         public TimeSpan ChangeInterval;
+        private string _defaultWallpaperPath;
 
         public WallpaperEngineCommand() : base()
         {
@@ -47,7 +50,14 @@ namespace Payload.Command.WallPaper
         private void Init()
         {
             try
-            {                
+            {
+                _defaultWallpaperPath = "";
+                RegistryKey regKey = Registry.CurrentUser.OpenSubKey("Control Panel\\Desktop", false);
+                if (regKey != null)
+                {
+                    _defaultWallpaperPath = regKey.GetValue("WallPaper").ToString();
+                    regKey.Close();
+                }
                 CurrentMode = ChangeInterval.Ticks <= 0 ? Payload.Command.WallPaper.Mode.MANUAL : Payload.Command.WallPaper.Mode.AUTO;
                 DirectoryInfo imgDir = new DirectoryInfo($"{Config.Instance.WorkSpaceDir}\\{Config.Instance.WallpaperEngineCommandImageDir}");
                 imgList = imgDir.GetFiles();
@@ -75,11 +85,14 @@ namespace Payload.Command.WallPaper
                 switch (CurrentMode)
                 {
                     case Payload.Command.WallPaper.Mode.AUTO:
-                        DisplayPicture(DrawPhoto());
+                        SetWallpaper();
                         break;
                     case Payload.Command.WallPaper.Mode.MANUAL:
-                        _interval = GetDefaultInterval(); // Wait For Manual action ...                        
+                        _interval = GetDefaultInterval();                     
                         ManualCall();
+                        break;
+                    case Payload.Command.WallPaper.Mode.RESET:
+                        ResetWallpaper();
                         break;
                 }
                 
@@ -90,6 +103,16 @@ namespace Payload.Command.WallPaper
         public void ManualCall()
         {
             //To-Do ...
+        }
+
+        public void ResetWallpaper()
+        {
+            DisplayPicture(_defaultWallpaperPath);
+        }
+
+        public void SetWallpaper()
+        {
+            DisplayPicture(DrawPhoto());
         }
 
         private string DrawPhoto()

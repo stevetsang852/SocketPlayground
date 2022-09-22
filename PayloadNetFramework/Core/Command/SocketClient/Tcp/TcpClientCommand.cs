@@ -27,7 +27,7 @@ namespace Payload.Command.SocketClient
                 socket.On(Socket.EVENT_CONNECT, () =>
                 {
                     socket.Emit("message");
-                    socket.Send("message", "123");
+                    socket.Send("123");
                 });
 
                 socket.On("message", (data) =>

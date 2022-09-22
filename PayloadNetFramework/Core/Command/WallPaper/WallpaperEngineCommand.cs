@@ -26,7 +26,7 @@ namespace Payload.Command.WallPaper
         public string currentPhoto;
         public TimeSpan ChangeInterval;
 
-        public WallpaperEngineCommand()
+        public WallpaperEngineCommand() : base()
         {
             ChangeInterval = GetDefaultInterval();
             Init();
@@ -47,9 +47,7 @@ namespace Payload.Command.WallPaper
         private void Init()
         {
             try
-            {
-                base.TokenSource = new CancellationTokenSource();
-                base.Token = TokenSource.Token;
+            {                
                 CurrentMode = ChangeInterval.Ticks <= 0 ? Payload.Command.WallPaper.Mode.MANUAL : Payload.Command.WallPaper.Mode.AUTO;
                 DirectoryInfo imgDir = new DirectoryInfo($"{Config.Instance.WorkSpaceDir}\\{Config.Instance.WallpaperEngineCommandImageDir}");
                 imgList = imgDir.GetFiles();
@@ -65,13 +63,13 @@ namespace Payload.Command.WallPaper
             return base.ExecuteNewTask(async () => { await MainTaskAsync(ChangeInterval); });
         }
 
-        private async Task MainTaskAsync(TimeSpan interval)
+        private async Task MainTaskAsync(TimeSpan _interval)
         {
             while (!base.Token.IsCancellationRequested)
             {                
                 if (base.Token.IsCancellationRequested)
                     base.Token.ThrowIfCancellationRequested();
-                Task.Delay(interval, base.Token).Wait();
+                Task.Delay(_interval, base.Token).Wait();
                 if (base.Pause)                    
                     continue;
                 switch (CurrentMode)
@@ -80,7 +78,7 @@ namespace Payload.Command.WallPaper
                         DisplayPicture(DrawPhoto());
                         break;
                     case Payload.Command.WallPaper.Mode.MANUAL:
-                        interval = GetDefaultInterval(); // Wait For Manual action ...                        
+                        _interval = GetDefaultInterval(); // Wait For Manual action ...                        
                         ManualCall();
                         break;
                 }

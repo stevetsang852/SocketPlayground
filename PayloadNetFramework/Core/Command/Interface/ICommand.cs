@@ -13,6 +13,11 @@ namespace Payload.Command.Interface
         public CancellationTokenSource TokenSource { get; protected set; } = null;
         public CancellationToken Token { get; protected set; }
         public Task CurrentTask;
+        public ICommand()
+        {
+            this.TokenSource = new CancellationTokenSource();
+            this.Token = TokenSource.Token;
+        }
         public abstract Task Execute();
         public Task ExecuteNewTask(Func<Task> func)
         {

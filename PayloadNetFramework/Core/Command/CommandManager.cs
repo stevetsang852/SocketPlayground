@@ -76,7 +76,7 @@ namespace Payload.Command
         #endregion
         public Dictionary<Payload.Common.Config.EnumTask, TaskPack> TaskMap { get; private set; }
 
-        public void Init()
+        private void Init()
         {
             TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
             TaskMap.Add(Common.Config.EnumTask.WallpaperEngine, new Payload.Command.WallPaper.WallpaperEngineFactory().CreateTaskPack());

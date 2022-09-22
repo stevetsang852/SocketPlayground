@@ -26,24 +26,23 @@ namespace Payload.Command.WallPaper
         
         public FileInfo[] imgList { get; private set; }
         public string currentPhoto;
-        public TimeSpan ChangeInterval;
         private string _defaultWallpaperPath;
 
         public WallpaperEngineCommand() : base()
         {
-            ChangeInterval = GetDefaultInterval();
+            base.Interval = GetDefaultInterval();
             Init();
         }
 
         public WallpaperEngineCommand(TimeSpan _interval)
         {
-            ChangeInterval = _interval;
+            base.Interval = _interval;
             Init();
         }
 
         public WallpaperEngineCommand(long _interval)
         {
-            ChangeInterval = TimeSpan.FromMilliseconds(_interval);
+            base.Interval = TimeSpan.FromMilliseconds(_interval);
             Init();
         }
 
@@ -58,7 +57,7 @@ namespace Payload.Command.WallPaper
                     _defaultWallpaperPath = regKey.GetValue("WallPaper").ToString();
                     regKey.Close();
                 }
-                CurrentMode = ChangeInterval.Ticks <= 0 ? Payload.Command.WallPaper.Mode.MANUAL : Payload.Command.WallPaper.Mode.AUTO;
+                CurrentMode = base.Interval.Ticks <= 0 ? Payload.Command.WallPaper.Mode.MANUAL : Payload.Command.WallPaper.Mode.AUTO;
                 DirectoryInfo imgDir = new DirectoryInfo($"{Config.Instance.WorkSpaceDir}\\{Config.Instance.WallpaperEngineCommandImageDir}");
                 imgList = imgDir.GetFiles();
             }
@@ -70,16 +69,16 @@ namespace Payload.Command.WallPaper
 
         public override Task Execute()
         {
-            return base.ExecuteNewTask(async () => { await MainTaskAsync(ChangeInterval); });
+            return base.ExecuteNewTask(async () => { await MainTaskAsync(); });
         }
 
-        private async Task MainTaskAsync(TimeSpan _interval)
+        private async Task MainTaskAsync()
         {
             while (!base.Token.IsCancellationRequested)
             {                
                 if (base.Token.IsCancellationRequested)
                     base.Token.ThrowIfCancellationRequested();
-                Task.Delay(_interval, base.Token).Wait();
+                Task.Delay(base.Interval, base.Token).Wait();
                 if (base.Pause)                    
                     continue;
                 switch (CurrentMode)
@@ -88,7 +87,7 @@ namespace Payload.Command.WallPaper
                         SetWallpaper();
                         break;
                     case Payload.Command.WallPaper.Mode.MANUAL:
-                        _interval = GetDefaultInterval();                     
+                        base.Interval = GetDefaultInterval();                     
                         ManualCall();
                         break;
                     case Payload.Command.WallPaper.Mode.RESET:

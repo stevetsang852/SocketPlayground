@@ -57,8 +57,11 @@ namespace Payload.Common
         #endregion
 
         #region Class WallpaperEngineFactory
-        public long WallpaperEngineFactoryInitInterval = 1000;
+        public long WallpaperEngineFactoryInitInterval = 1000 * 60;
+        #endregion
 
+        #region Class SocketIOClientCommand
+        public long SocketIOClientCommandDefaultInterval = 5 * 1000;
         #endregion
     }
 }

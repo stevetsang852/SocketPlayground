@@ -48,7 +48,7 @@
   <ItemGroup>
     <Compile Include="Core\Command\CommandManager.cs" />
     <Compile Include="Core\Command\Interface\ICommand.cs" />
-    <Compile Include="Core\Command\Interface\ICreator.cs" />
+    <Compile Include="Core\Command\Interface\IFactory.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineCommand.cs" />
     <Compile Include="Common\Config.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineFactory.cs" />

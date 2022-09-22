@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Payload.Command.WallPaper
 {
-    public class WallpaperEngineFactory : Payload.Command.Interface.Creator
+    public class WallpaperEngineFactory : Payload.Command.Interface.IFactory
     {
         public override TaskPack CreateTaskPack()
         {

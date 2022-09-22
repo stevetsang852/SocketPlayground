@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Payload.Command.Interface
 {
-    public abstract class Creator
+    public abstract class IFactory
     {
         public abstract Payload.Command.TaskPack CreateTaskPack();
     }

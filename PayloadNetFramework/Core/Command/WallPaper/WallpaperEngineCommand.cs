@@ -74,29 +74,22 @@ namespace Payload.Command.WallPaper
 
         private async Task MainTaskAsync()
         {
-            while (!base.Token.IsCancellationRequested)
-            {                
-                if (base.Token.IsCancellationRequested)
-                    base.Token.ThrowIfCancellationRequested();
-                Task.Delay(base.Interval, base.Token).Wait();
-                if (base.Pause)                    
-                    continue;
+            base.InfinityLoopInToken(() => new Task(()=>
+            {
                 switch (CurrentMode)
                 {
                     case Payload.Command.WallPaper.Mode.AUTO:
                         SetWallpaper();
                         break;
                     case Payload.Command.WallPaper.Mode.MANUAL:
-                        base.Interval = GetDefaultInterval();                     
+                        base.Interval = GetDefaultInterval();
                         ManualCall();
                         break;
                     case Payload.Command.WallPaper.Mode.RESET:
                         ResetWallpaper();
                         break;
                 }
-                
-                //Thread.Sleep(interval);
-            }
+            }));
         }
 
         public void ManualCall()

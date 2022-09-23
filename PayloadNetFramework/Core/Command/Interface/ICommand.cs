@@ -36,12 +36,31 @@ namespace Payload.Command.Interface
                 {
                     await func();
                 }
-                catch (Exception e)
+                catch
                 {
 
                 }
             }, this.Token);
             return this.CurrentTask;
+        }
+        protected void InfinityLoopInToken(Func<Task> func)
+        {
+            try
+            {
+                while (!this.Token.IsCancellationRequested)
+                {
+                    if (this.Token.IsCancellationRequested)
+                        this.Token.ThrowIfCancellationRequested();
+                    Task.Delay(this.Interval, this.Token).Wait();
+                    if (this.Pause)
+                        continue;
+                    func().Wait();
+                }
+            }
+            catch
+            {
+
+            }
         }
     }
 }

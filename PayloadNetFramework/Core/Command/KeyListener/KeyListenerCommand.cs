@@ -20,7 +20,8 @@ namespace Payload.Core.Command.Key
         private async Task MainTaskAsync()
         {
             Console.WriteLine("Press A to simulate a button click");
-            while(true){
+            while(true)
+            {
                 SendKeys.SendWait("{Enter}");
             }
         }

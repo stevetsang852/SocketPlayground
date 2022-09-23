@@ -37,6 +37,7 @@ namespace Payload.Common
         #region Enum
         public enum EnumTask
         {
+            Demo,
             WallpaperEngine,
             TcpClient,
             KeyListener
@@ -53,7 +54,7 @@ namespace Payload.Common
         #region Global
         public string WorkSpaceDir;
         public string ExeName;
-        public int MainSleepInterval = 1 * 1000;
+        public int MainSleepInterval = 10 * 1000;
         #endregion
 
         #region Class CommandManager

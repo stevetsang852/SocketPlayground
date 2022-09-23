@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace Payload.Core.Command.Demo
+namespace Payload.Core.Command
 {
     public class ConsoleLogCommand : Payload.Command.Interface.ICommand
     {

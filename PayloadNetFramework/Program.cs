@@ -1,5 +1,6 @@
 ﻿using Microsoft.Win32;
 using Payload.Common;
+using Payload.Core.Command;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,7 @@ namespace Payload
     {
         static void Main(string[] args)
         {
+            new ConsoleLogCommand().Execute<String>($" Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
             while (true)
             {
                 Command.CommandManager.Instance.Run();

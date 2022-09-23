@@ -12,7 +12,7 @@ namespace Payload.Command.Interface
         public bool Pause = false;
         public CancellationTokenSource TokenSource { get; protected set; } = null;
         public CancellationToken Token { get; protected set; }
-        public Task CurrentTask;
+        protected Task CurrentTask;
 
         public TimeSpan Interval;
         public ICommand()
@@ -30,7 +30,8 @@ namespace Payload.Command.Interface
         }
         protected Task ExecuteNewTask(Func<Task> func)
         {
-            this.CurrentTask = Task.Factory.StartNew(async () => {
+            this.CurrentTask = Task.Factory.StartNew(async () => 
+            {
                 try
                 {
                     await func();

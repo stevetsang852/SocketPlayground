@@ -46,7 +46,7 @@ namespace Payload.Command
             TaskMap.Add(Common.Config.EnumTask.Demo, new DemorFactory().CreateTaskPack());
 
             TaskMap.Add(Common.Config.EnumTask.TcpClient, new SocketIOClientFactory().CreateTaskPack());
-            TaskMap.Add(Common.Config.EnumTask.KeyListener, new KeyListenerFactory().CreateTaskPack());
+            //TaskMap.Add(Common.Config.EnumTask.KeyListener, new KeyListenerFactory().CreateTaskPack());
         }
 
         public bool AddTaskPack(Common.Config.EnumTask _key, TaskPack _tp)

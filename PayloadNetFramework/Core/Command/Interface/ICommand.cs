@@ -20,8 +20,15 @@ namespace Payload.Command.Interface
             this.TokenSource = new CancellationTokenSource();
             this.Token = TokenSource.Token;
         }
-        public abstract Task Execute();
-        public Task ExecuteNewTask(Func<Task> func)
+        public virtual Task Execute()
+        {
+            throw new NotImplementedException("Please override this method");
+        }
+        public virtual Task Execute<T>(T _input)
+        {
+            throw new NotImplementedException("Please override this method");
+        }
+        protected Task ExecuteNewTask(Func<Task> func)
         {
             this.CurrentTask = Task.Factory.StartNew(async () => {
                 try

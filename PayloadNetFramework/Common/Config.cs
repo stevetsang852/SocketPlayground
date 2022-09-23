@@ -41,12 +41,19 @@ namespace Payload.Common
             TcpClient,
             KeyListener
         }
+
+        public enum EnumTaskPackMode
+        {
+            NONE,
+            AUTO,
+            ONCE
+        }
         #endregion
 
         #region Global
         public string WorkSpaceDir;
         public string ExeName;
-        public int MainSleepInterval = 60 * 1000;
+        public int MainSleepInterval = 1 * 1000;
         #endregion
 
         #region Class CommandManager

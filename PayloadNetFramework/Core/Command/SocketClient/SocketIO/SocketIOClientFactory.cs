@@ -12,7 +12,7 @@ namespace Payload.Command.SocketClient
     {
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new SocketIOClientCommand());
+            return new TaskPack(new SocketIOClientCommand(), Config.EnumTaskPackMode.ONCE);
         }
     }
 }

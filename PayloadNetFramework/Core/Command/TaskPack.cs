@@ -13,11 +13,12 @@ namespace Payload.Command
         public ICommand Command { get; private set; }
         public Task Task { get; private set; } = null;
         public bool ShouldCallRun { get; private set; } = true;
-        public EnumTaskPackMode Mode { get; set; } = EnumTaskPackMode.AUTO;
+        public EnumTaskPackMode Mode { get; set; }
         public bool Executed { get; private set; } = false;
-        public TaskPack(ICommand command)
+        public TaskPack(ICommand command, EnumTaskPackMode mode = EnumTaskPackMode.AUTO)
         {
             Command = command;
+            Mode = mode;
         }
 
         public bool SetCurrentTask(Task task)
@@ -56,7 +57,7 @@ namespace Payload.Command
             Command.Pause = true;
             try
             {
-                Command.TokenSource.Cancel();
+                Command?.TokenSource?.Cancel();
             }
             catch
             {

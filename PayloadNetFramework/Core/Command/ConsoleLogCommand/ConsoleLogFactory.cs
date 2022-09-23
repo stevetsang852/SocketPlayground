@@ -15,6 +15,7 @@ namespace Payload.Core.Command
         public override TaskPack CreateTaskPack()
         {
             TaskPack _tp = new TaskPack(new ConsoleLogCommand());
+            _tp.Stop();
             _tp.Mode = Common.Config.EnumTaskPackMode.NONE; // Not Call at CommandManager
             return _tp;
         }

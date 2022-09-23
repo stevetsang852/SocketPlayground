@@ -17,7 +17,6 @@ namespace Payload.Command.SocketClient
         SocketIOClient.SocketIO client;
         bool ReTry = false;
         bool ReTrying = false;
-        private static object locker = new object();
 
         public SocketIOClientCommand() : base()
         {
@@ -29,7 +28,7 @@ namespace Payload.Command.SocketClient
             try
             {
                 base.Interval = TimeSpan.FromMilliseconds(Config.Instance.SocketIOClientCommandDefaultInterval);
-                sic = new SocketIoClient("http://127.0.0.1:55699"); // "http://192.168.88.240:5000"
+                sic = new SocketIoClient(Config.Instance.SocketIOClientCommandServerHost);
                 client = sic.client;
                 client.OnConnected += Client_OnConnected;
                 client.OnDisconnected += Client_OnDisconnected;
@@ -83,6 +82,7 @@ namespace Payload.Command.SocketClient
 
         public override Task Execute()
         {
+            Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: START CONNECT SERVER");
             return base.ExecuteNewTask(async () => { await MainTaskAsync(); });
         }
 
@@ -96,9 +96,8 @@ namespace Payload.Command.SocketClient
                 if (client.Connected)
                     break;
                 if (!client.Connected)
-                    await client.ConnectAsync();                                   
+                    await client.ConnectAsync();
                 await Task.Delay(base.Interval, base.Token);
-                Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: RETRY");
             }
             Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: DONE");
             ReTrying = false;

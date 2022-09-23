@@ -71,7 +71,7 @@ namespace Payload.Command.SocketClient
         {
             try
             {
-                client.EmitAsync("message", "HI Jack").Wait();
+                client.EmitAsync("message", "HI TEST").Wait();
             }
             catch
             {

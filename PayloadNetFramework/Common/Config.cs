@@ -31,6 +31,7 @@ namespace Payload.Common
         public void Init()
         {
             WorkSpaceDir = Directory.GetCurrentDirectory();
+            ExeName = System.AppDomain.CurrentDomain.FriendlyName;
         }
 
         #region Enum
@@ -43,6 +44,7 @@ namespace Payload.Common
 
         #region Global
         public string WorkSpaceDir;
+        public string ExeName;
         public int MainSleepInterval = 60 * 1000;
         #endregion
 

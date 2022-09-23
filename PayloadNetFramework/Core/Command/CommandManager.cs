@@ -121,6 +121,33 @@ namespace Payload.Command
             TaskMap = _map;
         }
 
+        public void AddWallpaperCmd(WallPaper.Mode _mode)
+        {
+            TaskPack taskPack;
+            bool init = false;
+            taskPack = CommandManager.Instance.GetTaskPack(Common.Config.EnumTask.WallpaperEngine);
+            if (taskPack == null)
+            {
+                init = true;
+                taskPack = new Payload.Command.WallPaper.WallpaperEngineFactory().CreateTaskPack();
+            }
+            WallPaper.WallpaperEngineCommand weCmd = ((WallPaper.WallpaperEngineCommand)taskPack.Command);
+            weCmd.CurrentMode = _mode;
+            switch (_mode)
+            {
+                case WallPaper.Mode.AUTO:
+                    weCmd.SetWallpaper();
+                    break;
+                case WallPaper.Mode.RESET:
+                    weCmd.ResetWallpaper();
+                    break;
+            }
+            taskPack.Start();
+
+            if (init)
+                CommandManager.Instance.AddTaskPack(Common.Config.EnumTask.WallpaperEngine, taskPack);
+        }
+
         public void Run()
         {
             foreach (var taskPack in TaskMap)

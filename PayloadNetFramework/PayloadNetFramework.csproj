@@ -92,6 +92,7 @@
     <Compile Include="Core\Command\CommandManager.cs" />
     <Compile Include="Core\Command\Interface\ICommand.cs" />
     <Compile Include="Core\Command\Interface\IFactory.cs" />
+    <Compile Include="Core\Command\SocketClient\SocketIO\SocketIoClient.cs" />
     <Compile Include="Core\Command\SocketClient\SocketIO\SocketIOClientCommand.cs" />
     <Compile Include="Core\Command\SocketClient\SocketIO\SocketIOClientFactory.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineCommand.cs" />

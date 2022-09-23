@@ -8,8 +8,8 @@
 <script type="text/javascript">
 $(document).ready(function() {
 
-	//var socket = io.connect('http://127.0.0.1:5000');
-	var socket = io.connect('http://192.168.88.240:5000');
+	var socket = io.connect('http://127.0.0.1:55699');
+	// var socket = io.connect('http://192.168.88.240:5000');
 
 	socket.on('connect', function() {
 		socket.send('User has connected!');
@@ -20,8 +20,18 @@ $(document).ready(function() {
 		console.log('Received message');
 	});
 
+	socket.on('wallpaper', function(msg) {
+		$("#messages").append('<li style="color:red;">'+msg.data+'</li>');
+		console.log('wallpaper');
+	});
+
 	$('#sendbutton').on('click', function() {
 		socket.send($('#myMessage').val());
+		$('#myMessage').val('');
+	});
+
+	$('#wp').on('click', function() {
+		socket.emit('wallpaper', {data:$('#myMessage').val()});
 		$('#myMessage').val('');
 	});
 
@@ -30,5 +40,6 @@ $(document).ready(function() {
 <ul id="messages"></ul>
 <input type="text" id="myMessage">
 <button id="sendbutton">Send</button>
+<button id="wp">WP</button>
 </body>
 </html>

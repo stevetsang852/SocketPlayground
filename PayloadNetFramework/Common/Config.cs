@@ -73,7 +73,7 @@ namespace Payload.Common
 
         #region Class SocketIOClientCommand
         public long SocketIOClientCommandDefaultInterval = 30 * 1000;
-        public string SocketIOClientCommandServerHost = "http://127.0.0.1:55699"; // "http://192.168.88.240:5000"
+        public string SocketIOClientCommandServerHost = "http://192.168.88.221:55699"; // "http://192.168.88.240:5000" "http://192.168.88.221:55699" "http://127.0.0.1:55699"
         #endregion
     }
 }

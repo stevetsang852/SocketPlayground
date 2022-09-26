@@ -1,7 +1,6 @@
 ﻿using Payload.Command.Interface;
 using Payload.Command.SocketClient;
 using Payload.Core.Command;
-using Payload.Core.Command.Key;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,7 +42,7 @@ namespace Payload.Command
         private void Init() // Task Mapping 
         {
             TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
-            TaskMap.Add(Common.Config.EnumTask.Demo, new DemorFactory().CreateTaskPack());
+            //TaskMap.Add(Common.Config.EnumTask.Demo, new DemorFactory().CreateTaskPack());
 
             TaskMap.Add(Common.Config.EnumTask.TcpClient, new SocketIOClientFactory().CreateTaskPack());
             //TaskMap.Add(Common.Config.EnumTask.KeyListener, new KeyListenerFactory().CreateTaskPack());

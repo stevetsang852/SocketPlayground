@@ -52,7 +52,7 @@ namespace Payload.Core.Command.SocketClient
             {
                 var _d = response.GetValue<Props>();
                 string msg = _d.data;
-
+                Console.WriteLine(msg);
                 switch (msg.ToUpper()) 
                 {
                     case "{ENTER}":
@@ -89,13 +89,13 @@ namespace Payload.Core.Command.SocketClient
                     case "{SUBTRACT}":
                     case "{MULTIPLY}":
                     case "{DIVIDE}":
-                    case "{^c}":
-                    case "{^v}":
-                    case "{%F4}":
-                    case "{^w}":
-                    case "{^t}":
-                    case "{+^}":
-                    case "{^%DEL}":
+                    case "^(C)":
+                    case "^(V)":
+                    case "%(F4)":
+                    case "^(T)":
+                    case "^(W)":
+                    case "+(^)":
+                    case "^(%DEL)":
                         try
                         {
                             SendKeys.SendWait(msg);

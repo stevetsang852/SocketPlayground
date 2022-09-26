@@ -89,7 +89,12 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common\TextHelper.cs" />
     <Compile Include="Core\Command\CommandManager.cs" />
+    <Compile Include="Core\Command\ConsoleLogCommand\ConsoleLogCommand.cs" />
+    <Compile Include="Core\Command\ConsoleLogCommand\ConsoleLogFactory.cs" />
+    <Compile Include="Core\Command\DemoCommand\DemoCommand.cs" />
+    <Compile Include="Core\Command\DemoCommand\DemorFactory.cs" />
     <Compile Include="Core\Command\Interface\ICommand.cs" />
     <Compile Include="Core\Command\Interface\IFactory.cs" />
     <Compile Include="Core\Command\KeyListener\KeyListenerCommand.cs" />
@@ -97,6 +102,7 @@
     <Compile Include="Core\Command\SocketClient\SocketIO\SocketIoClient.cs" />
     <Compile Include="Core\Command\SocketClient\SocketIO\SocketIOClientCommand.cs" />
     <Compile Include="Core\Command\SocketClient\SocketIO\SocketIOClientFactory.cs" />
+    <Compile Include="Core\Command\TaskPack.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineCommand.cs" />
     <Compile Include="Common\Config.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineFactory.cs" />

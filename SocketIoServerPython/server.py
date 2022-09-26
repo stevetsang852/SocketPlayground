@@ -15,5 +15,10 @@ def handleWallpaper(msg):
     #print('Wallpaper :: ' + data)
     socketio.emit('wallpaper', msg, broadcast=True)
 
+@socketio.on('key')
+def handleWallpaper(msg):
+    #print('Wallpaper :: ' + data)
+    socketio.emit('key', msg, broadcast=True)
+
 if __name__ == '__main__':
     socketio.run(app, '0.0.0.0', 55699)

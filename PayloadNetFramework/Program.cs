@@ -14,7 +14,7 @@ namespace Payload
     {
         static void Main(string[] args)
         {
-            new ConsoleLogCommand().Execute<String>($" Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
+            new ConsoleLogCommand().Execute<String>($"Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
             while (true)
             {
                 Command.CommandManager.Instance.Run();

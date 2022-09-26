@@ -97,6 +97,8 @@ namespace Payload.Command
             foreach (var taskPack in TaskMap)
             {
                 TaskPack _tp = taskPack.Value;
+                if (_tp == null)
+                    continue;
                 if (_tp.Mode.Equals(EnumTaskPackMode.NONE) || !_tp.ShouldCallRun)
                     continue;
                 if (_tp.Mode.Equals(EnumTaskPackMode.ONCE) && _tp.Executed)

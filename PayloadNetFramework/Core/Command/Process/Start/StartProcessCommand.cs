@@ -24,8 +24,6 @@ namespace Payload.Core.Command
             var p = new Process();
             p.StartInfo.FileName = batPath;
             p.Start();
-            //CmdHelper.ExecuteCommand("echo testing");
-            Console.WriteLine("StartProcessCommand :: Execute");
             return null;
         }
     }

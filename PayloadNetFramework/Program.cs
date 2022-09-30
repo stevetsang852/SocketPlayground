@@ -3,10 +3,13 @@ using Payload.Common;
 using Payload.Core.Command;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Security.Principal;
 
 namespace Payload
 {
@@ -15,7 +18,11 @@ namespace Payload
         static void Main(string[] args)
         {
             AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
+
+            new KillOtherMeCommand().Execute();
+
             new ConsoleLogCommand().Execute<String>($"Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
+            
             while (true)
             {
                 Command.CommandManager.Instance.Run();

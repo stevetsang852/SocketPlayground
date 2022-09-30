@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using static System.Environment;
@@ -39,6 +41,30 @@ namespace Payload.Common
                 Directory.CreateDirectory(TargetWorkSpaceDir);            
         }
 
+        public static bool IsRelease(Assembly assembly)
+        {
+            object[] attributes = assembly.GetCustomAttributes(typeof(DebuggableAttribute), true);
+            if (attributes == null || attributes.Length == 0)
+                return true;
+
+            var d = (DebuggableAttribute)attributes[0];
+            if ((d.DebuggingFlags & DebuggableAttribute.DebuggingModes.Default) == DebuggableAttribute.DebuggingModes.None)
+                return true;
+
+            return false;
+        }
+
+        public static bool IsDebug(Assembly assembly)
+        {
+            object[] attributes = assembly.GetCustomAttributes(typeof(DebuggableAttribute), true);
+            if (attributes == null || attributes.Length == 0)
+                return true;
+
+            var d = (DebuggableAttribute)attributes[0];
+            if (d.IsJITTrackingEnabled) return true;
+            return false;
+        }
+
         #region Enum
         public enum EnumTask
         {
@@ -58,6 +84,13 @@ namespace Payload.Common
             ONCE,
             EXIT
         }
+
+        public enum EnumAppMode
+        {
+            NONE,
+            DEBUG,
+            JACK
+        }
         #endregion
 
         #region Global
@@ -66,6 +99,7 @@ namespace Payload.Common
         public string ExeName;
         public string ExeFullName;
         public int MainSleepInterval = 5 * 1000;
+        public EnumAppMode AppMode = Config.IsDebug(Assembly.GetExecutingAssembly())?EnumAppMode.DEBUG:EnumAppMode.JACK;
         #endregion
 
         #region Class CommandManager

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Payload.Common.Config;
 
 namespace Payload.Command.SocketClient
 {
@@ -12,7 +13,7 @@ namespace Payload.Command.SocketClient
     {
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new SocketIOClientCommand(), Config.EnumTaskPackMode.ONCE, new HashSet<Config.EnumTask>() { Config.EnumTask.CopyItself });
+            return new TaskPack(new SocketIOClientCommand(), Config.EnumTaskPackMode.ONCE, Config.Instance.AppMode.Equals(EnumAppMode.DEBUG)? null :new HashSet<EnumTask>() { EnumTask.CopyItself });
         }
     }
 }

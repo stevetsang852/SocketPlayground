@@ -10,11 +10,11 @@ using System.Threading.Tasks;
 
 namespace Payload.Core.Command
 {
-    public class DemorFactory : Payload.Command.Interface.IFactory
+    public class StartupSetupFactory : Payload.Command.Interface.IFactory
     {
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new DemoCommand());
+            return new TaskPack(new StartupSetupCommand(), Common.Config.EnumTaskPackMode.ONCE);
         }
 
     }

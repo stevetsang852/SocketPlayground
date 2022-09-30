@@ -14,12 +14,17 @@ namespace Payload
     {
         static void Main(string[] args)
         {
+            AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
             new ConsoleLogCommand().Execute<String>($"Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
             while (true)
             {
                 Command.CommandManager.Instance.Run();
                 Thread.Sleep(Config.Instance.MainSleepInterval);
             }
+        }
+
+        private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
+        {
         }
     }
 }

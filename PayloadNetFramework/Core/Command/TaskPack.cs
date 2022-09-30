@@ -15,10 +15,17 @@ namespace Payload.Command
         public bool ShouldCallRun { get; private set; } = true;
         public EnumTaskPackMode Mode { get; set; }
         public bool Executed { get; private set; } = false;
-        public TaskPack(ICommand command, EnumTaskPackMode mode = EnumTaskPackMode.AUTO)
+        public HashSet<EnumTask> Precondition { get; private set; }
+        public TaskPack(ICommand command, EnumTaskPackMode mode = EnumTaskPackMode.AUTO, HashSet<EnumTask> precondition = null)
         {
             Command = command;
             Mode = mode;
+            Precondition = precondition != null? precondition : new HashSet<EnumTask>();
+        }
+
+        public void SetPrecondition(EnumTask tasks)
+        {
+            Precondition.Add(tasks);
         }
 
         public bool SetCurrentTask(Task task)
@@ -29,7 +36,7 @@ namespace Payload.Command
             return true;
         }
 
-        public bool Start()
+        public bool Start(EnumTask enumTask)
         {
             if (Command == null)
                 return false;
@@ -37,8 +44,11 @@ namespace Payload.Command
             Command.Pause = false;
             if (Task == null || !Task.Status.Equals(TaskStatus.Running))
             {
+                Command.PreExecute(enumTask);
                 Task _t = Command.Execute();
                 SetCurrentTask(_t);
+                if(Precondition.Count>0)
+                    Precondition.Clear();
                 Executed = true;
             }
             return true;

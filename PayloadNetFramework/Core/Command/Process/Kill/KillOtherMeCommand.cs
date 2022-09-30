@@ -14,10 +14,12 @@ namespace Payload.Core.Command
     {
         public override Task Execute()
         {
+            int nProcessID = Process.GetCurrentProcess().Id;
             var pList = Process.GetProcessesByName(Config.Instance.ExeName.Split('.')[0]);
             if (pList.Length > 1)
                 foreach (var process in pList)
-                    process.Kill();
+                    if(process.Id != nProcessID)
+                        process.Kill();
             return null;
         }
     }

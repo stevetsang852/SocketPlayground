@@ -33,6 +33,9 @@ namespace Payload.Common
 
         public void Init()
         {
+            //System.AppDomain.CurrentDomain.FriendlyName // filename with extension
+            //System.Diagnostics.Process.GetCurrentProcess().ProcessName // without extension
+            //System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName // the full path and filename with extension
             WorkSpaceDir = Directory.GetCurrentDirectory();
             ExeName = System.AppDomain.CurrentDomain.FriendlyName;
             ExeFullName = $"{WorkSpaceDir}\\{ExeName}";

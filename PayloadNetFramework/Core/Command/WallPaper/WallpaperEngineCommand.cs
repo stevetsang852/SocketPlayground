@@ -21,12 +21,14 @@ namespace Payload.Command.WallPaper
     public class WallpaperEngineCommand : Payload.Command.Interface.ICommand
     {
         private readonly static long _defaultInterval = Config.Instance.WallpaperEngineCommandDefaultInterval;
+        private readonly static long _factoryInterval = Config.Instance.WallpaperEngineFactoryInitInterval;
 
         public Payload.Command.WallPaper.Mode CurrentMode { get; set; } = Payload.Command.WallPaper.Mode.NONE;
         
         public FileInfo[] imgList { get; private set; }
         public string currentPhoto;
         private string _defaultWallpaperPath;
+        private RegistryKey regKey;
 
         public WallpaperEngineCommand() : base()
         {
@@ -46,17 +48,22 @@ namespace Payload.Command.WallPaper
             Init();
         }
 
+        public string GetCurrentWallpaper()
+        {
+            regKey = Registry.CurrentUser.OpenSubKey("Control Panel\\Desktop", false);
+            if (regKey != null)
+            {
+                _defaultWallpaperPath = regKey.GetValue("WallPaper").ToString();
+                regKey.Close();
+            }
+            return _defaultWallpaperPath;
+        } 
+
         private void Init()
         {
             try
             {
-                _defaultWallpaperPath = "";
-                RegistryKey regKey = Registry.CurrentUser.OpenSubKey("Control Panel\\Desktop", false);
-                if (regKey != null)
-                {
-                    _defaultWallpaperPath = regKey.GetValue("WallPaper").ToString();
-                    regKey.Close();
-                }
+                GetCurrentWallpaper();
                 CurrentMode = base.Interval.Ticks <= 0 ? Payload.Command.WallPaper.Mode.MANUAL : Payload.Command.WallPaper.Mode.AUTO;
                 ReflashImgList();
             }
@@ -79,11 +86,12 @@ namespace Payload.Command.WallPaper
 
         private async Task MainTaskAsync()
         {
-            base.InfinityLoopInToken(() => new Task(()=>
+            base.InfinityLoopInToken(async () => new Task(()=>
             {
                 switch (CurrentMode)
                 {
                     case Payload.Command.WallPaper.Mode.AUTO:
+                        base.Interval = GetDefaultInterval(_factoryInterval);
                         SetWallpaper();
                         break;
                     case Payload.Command.WallPaper.Mode.MANUAL:
@@ -91,10 +99,11 @@ namespace Payload.Command.WallPaper
                         ManualCall();
                         break;
                     case Payload.Command.WallPaper.Mode.RESET:
+                        base.Interval = GetDefaultInterval(_factoryInterval);
                         ResetWallpaper();
                         break;
                 }
-            }));
+            }).Start());
         }
 
         public void ManualCall()
@@ -129,9 +138,9 @@ namespace Payload.Command.WallPaper
             return currentPhoto;
         }
 
-        private TimeSpan GetDefaultInterval()
+        private TimeSpan GetDefaultInterval(long _l = long.MinValue)
         {
-            return TimeSpan.FromMilliseconds(_defaultInterval);
+            return TimeSpan.FromMilliseconds(_l!=long.MinValue ? _l:_defaultInterval);
         }
 
         #region Wallpaper System

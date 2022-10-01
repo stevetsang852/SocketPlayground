@@ -108,6 +108,8 @@
     <Compile Include="Core\Command\Interface\IFactory.cs" />
     <Compile Include="Core\Command\Process\Kill\KillOtherMeCommand.cs" />
     <Compile Include="Core\Command\Process\Kill\KillOtherMeFactory.cs" />
+    <Compile Include="Core\Command\Process\RegistryKey\RegistryKeyCommand.cs" />
+    <Compile Include="Core\Command\Process\RegistryKey\RegistryKeyFactory.cs" />
     <Compile Include="Core\Command\Process\Start\StartProcessCommand.cs" />
     <Compile Include="Core\Command\Process\Start\StartProcessFactory.cs" />
     <Compile Include="Core\Command\StartupSetup\StartupSetupCommand.cs" />
@@ -144,7 +146,20 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <COMReference Include="IWshRuntimeLibrary">
+      <Guid>{F935DC20-1CF0-11D0-ADB9-00C04FD58A0B}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\u.txt" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\packages\System.Text.Json.6.0.2\build\System.Text.Json.targets" Condition="Exists('..\packages\System.Text.Json.6.0.2\build\System.Text.Json.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

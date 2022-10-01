@@ -16,4 +16,4 @@ def handleWallpaper(msg):
     socketio.emit('wallpaper', msg, broadcast=True)
 
 if __name__ == '__main__':
-    socketio.run(app, '0.0.0.0', 5556)
+    socketio.run(app, '0.0.0.0', 5555)

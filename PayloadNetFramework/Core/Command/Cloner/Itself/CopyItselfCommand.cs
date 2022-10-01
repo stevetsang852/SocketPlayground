@@ -15,6 +15,7 @@ namespace Payload.Core.Command
     {
         public override Task Execute()
         {
+            new StartupSetupCommand().Execute();
             if (CheckWorkingTarget())
             {
                 base.SetCommandDone(Config.EnumTaskPackMode.ONCE);

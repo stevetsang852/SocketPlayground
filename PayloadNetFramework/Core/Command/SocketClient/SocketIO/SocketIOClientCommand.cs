@@ -73,6 +73,7 @@ namespace Payload.Command.SocketClient
             {
                 ReTry = false;
                 client.EmitAsync("message", Config.Instance.AppMode.Equals(EnumAppMode.JACK)?"JACK is Online":"TESTING...").Wait();
+                client.EmitAsync("my_event").Wait(); //my_info
                 Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: CONNECTED SERVER");
                 CommandManager.Instance.AddWallpaperCmd(WallPaper.Mode.RESET);
             }

@@ -15,10 +15,24 @@ using static Payload.Common.Config;
 
 namespace Payload.Core.Command.SocketClient
 {
-    public class Props
+    public class IBasicResProps<T>
+    {
+        public T data { get; set; }
+    }
+    public class WallpaperProps
     {
         public string data { get; set; }
     }
+
+    public class UpgradeProps
+    {
+        public byte[] file { get; set; }
+        public string name { get; set; }
+    }
+
+    public class UpgradeResProps : IBasicResProps<UpgradeProps> { }
+
+
     public class SocketIoClient
     {
         public SocketIO client { get; private set; }
@@ -33,11 +47,35 @@ namespace Payload.Core.Command.SocketClient
 
         private void Init()
         {
+            OnWallpaper();
+            OnUpgrade();
+            OnMyResponse();
+        }
+
+        private void OnMyResponse()
+        {
+            client.On("my_response", async response => {
+                Console.WriteLine(response);
+            });
+        }
+
+        private void OnUpgrade()
+        {
+            client.On("upgrade", async response => {
+                Console.WriteLine(response);
+                var upgradeProps = response.GetValue<UpgradeResProps>();
+
+
+            });
+        }
+
+        private void OnWallpaper()
+        {
             client.On("wallpaper", async response =>
-            { 
+            {
                 Console.WriteLine(response);
                 //string text = response.GetValue<string>();
-                var _d = response.GetValue<Props>();   
+                var _d = response.GetValue<WallpaperProps>();
                 string msg = _d.data;
 
                 switch (msg)

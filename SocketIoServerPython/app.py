@@ -1,5 +1,6 @@
 from http import client
 from threading import Lock
+from unicodedata import name
 from flask import Flask, render_template, session, request, \
     copy_current_request_context
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
@@ -7,6 +8,8 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, \
 
 from client_manager import ClientManager
 from client import  Client
+
+import os
 
 
 # Set this variable to "threading", "eventlet" or "gevent" to test the
@@ -16,9 +19,18 @@ async_mode = None
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode=async_mode)
+
+MAX_BUFFER_SIZE = 100 * 1000 * 1000  # 100 MB
+
+upload_temp_path = 'temp/upload'
+upgrade_temp_path = 'temp/upgrade'
+
+socketio = SocketIO(app, async_mode=async_mode , max_http_buffer_size=MAX_BUFFER_SIZE)
 thread = None
 thread_lock = Lock()
+
+
+
 _clientManager = ClientManager()
 
 def with_session_count(data):
@@ -47,10 +59,16 @@ def background_thread():
         
 
 
+def save_file(bytes, file_name, path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    f = open("{path}\\{file}".format(path=path,file=file_name), "wb")
+    f.write(bytes)
+    f.close()
+
 @app.route('/')
 def index():
     return render_template('index.html', async_mode=socketio.async_mode)
-
 
 @socketio.on('message')
 def handleMessage(msg):
@@ -67,6 +85,24 @@ def my_info(message):
 def handleWallpaper(msg):
     #print('Wallpaper :: ' + data)
     socketio.emit('wallpaper', msg, broadcast=True)
+
+@socketio.on('upgrade')
+def handleUpgrade(msg):
+    dist_ip = msg['dist_ip']
+    print('upgrade')
+    print(msg)
+    _client = _clientManager.getClientByIp(dist_ip)
+    if _client is None:
+        print('dist_ip not exist')
+        return
+    save_file(msg['data'], msg['name'], upgrade_temp_path)
+    emit('upgrade', {'data': {'file':msg['data'], 'name':msg['name']} }, room=_client.userId)
+
+@socketio.on('upload')
+def handleUpload(msg):
+    save_file(msg['data'], msg['name'], upload_temp_path)
+    txt = "{file} upload success".format(file=msg['name'])
+    emit('my_response', with_session_count({'data': txt}))
 
 @socketio.event
 def my_event(message):
@@ -124,7 +160,7 @@ def disconnect_request():
         leave_room(request.sid)
         close_room(request.sid)
         _client = _clientManager.getClientBySid(request.sid)
-        _clientManager.rmSession(_client.ip, request.sid)
+        _clientManager.rmSession(request.remote_addr, request.sid)
         leave_room(_client.userId)
         room_list = socketio.server.manager.rooms['/'].keys()
         inner_join = list(set(_client.sessionIdList) & set(room_list))
@@ -139,8 +175,8 @@ def disconnect_request():
         disconnect()
 
     # for this emit we use a callback function
-    # when the callback function is invoked we know that the message has been
-    # received and it is safe to disconnect
+    # when the callback function is invoked we know that the message has beenl
+    # received and it is safe to disconnectl
     emit('my_response',
          with_session_count({'data': 'Disconnected!'}),
          callback=can_disconnect)

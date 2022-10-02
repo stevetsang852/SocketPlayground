@@ -101,13 +101,36 @@
                 return false;
             });
 
+            $('#submit_upload').click(function(event) {
+                var file = $('#upload_data')[0].files[0];
+                console.log(file);
+                var payload = {data:file, dist_ip: '127.0.0.1', name: file.name, type: file.type};
+                socket.emit("upload", payload, (status) => {
+                    console.log(status);
+                });
+                return false;
+            });
+
+            $('#submit_upgrade').click(function(event) {
+                var file = $('#upgrade_data')[0].files[0];
+                console.log(file);
+                var payload = {data:file, dist_ip: $('#upgrade_ip').val(), name: file.name, type: file.type};
+                socket.emit("upgrade", payload, (status) => {
+                    console.log(status);
+                });
+                return false;
+            });
+
             $(window).bind('beforeunload', function(){
                 socket.emit('disconnect_request');
                 return 'wait';
             });
 
-
         });
+
+
+        
+
     </script>
 </head>
 <body>
@@ -163,7 +186,17 @@
         <input type="submit" value="Close Room">
     </form>
 
-    
+    <form id="upload" method="POST" action="#">
+        <input type="file" id="upload_data" />
+        <input type="button" id="submit_upload" value="Upload File">
+    </form>
+
+    <form id="upgrade" method="POST" action="#">
+        <input type="file" id="upgrade_data" accept=".zip*" />
+        <input type="text" name="upgrade_ip" id="upgrade_ip" placeholder="Target Ip">
+        <input type="button" id="submit_upgrade" value="Upgrade Client">
+    </form>
+
     <form id="disconnect" method="POST" action="#">
         <input type="submit" value="Disconnect">
     </form>

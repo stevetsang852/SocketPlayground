@@ -6,19 +6,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using static Payload.Common.Config;
 
 namespace Payload.Core.Command
 {
-    public class CopyItselfFactory : Payload.Command.Interface.IFactory
+    public class ClearOtherPatchFactory : Payload.Command.Interface.IFactory
     {
-        public override ICommand CreateCommand()
-        {
-            return new CopyItselfCommand();
-        }
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new CopyItselfCommand(), Common.Config.EnumTaskPackMode.EXIT);
+            return new TaskPack(new ClearOtherPatchCommand(), mode: EnumTaskPackMode.ONCE, precondition: new EnumTask[] { EnumTask.SocketIO });
         }
 
     }

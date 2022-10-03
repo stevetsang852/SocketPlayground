@@ -15,20 +15,14 @@ namespace Payload.Core.Command
     {
         public override Task Execute()
         {
-            new StartupSetupCommand().Execute();
-            if (CheckWorkingTarget())
+            if (Config.Instance.CheckWorkingTarget())
             {
-                base.SetCommandDone(Config.EnumTaskPackMode.ONCE);
-                Console.WriteLine("Copyitself :: CheckWorkingTarget");
-                return null;
+                string msg = "Copyitself :: CheckWorkingTarget";
+                Console.WriteLine(msg);
+                return Task.CompletedTask;
             }
             Copyitself();
             return null;
-        }
-
-        bool CheckWorkingTarget()
-        {
-            return Config.Instance.WorkSpaceDir.StartsWith(System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData));
         }
 
         void Copy(string sourceDir, string targetDir)
@@ -50,11 +44,12 @@ namespace Payload.Core.Command
                 if (!Directory.Exists(Config.Instance.TargetWorkSpaceDir))
                     Directory.CreateDirectory(Config.Instance.TargetWorkSpaceDir);
                 Copy(Config.Instance.WorkSpaceDir, Config.Instance.TargetWorkSpaceDir);
-                base.SetCommandDone(Config.EnumTaskPackMode.EXIT);
             }
             catch (Exception e)
             {
                 Console.WriteLine("Copyitself :: Exception");
+                TextHelper.WriteError(e.Message);
+                TextHelper.WriteError(e.StackTrace);
             }
         }
 

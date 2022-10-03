@@ -22,6 +22,15 @@ namespace Payload.Command.SocketClient
         public SocketIOClientCommand() : base()
         {
             Init();
+            AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
+        }
+
+        private void CurrentDomain_ProcessExit(object sender, EventArgs e)
+        {
+            Task.Factory.StartNew(async () =>
+            {
+               await client?.DisconnectAsync();
+            }).Start();
         }
 
         private void Init()
@@ -60,10 +69,10 @@ namespace Payload.Command.SocketClient
         private void startReconnet()
         {
             CommandManager.Instance.AddWallpaperCmd(WallPaper.Mode.AUTO);
+            Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: START RETRY");
             if (ReTry || ReTrying)
                 return;
             ReTry = true;
-            Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: START RETRY");
             Execute();
         }
 
@@ -72,10 +81,18 @@ namespace Payload.Command.SocketClient
             try
             {
                 ReTry = false;
-                client.EmitAsync("message", Config.Instance.AppMode.Equals(EnumAppMode.JACK)?"JACK is Online":"TESTING...").Wait();
-                client.EmitAsync("my_event").Wait(); //my_info
+                string msg = "TESTING...";
+                if (Config.Instance.AppMode.Equals(EnumAppMode.JACK))
+                {
+                    msg = "JACK is Online";
+                }
+                    
+                client.EmitAsync("message", msg).Wait();
+                client.EmitAsync("my_info").Wait();
+                
                 Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: CONNECTED SERVER");
                 CommandManager.Instance.AddWallpaperCmd(WallPaper.Mode.RESET);
+                base.SetCommandDone();
             }
             catch
             {
@@ -90,11 +107,10 @@ namespace Payload.Command.SocketClient
         }
 
         private async Task MainTaskAsync()
-        {            
-            Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: WAIT");
-
+        {
             while (!client.Connected || ReTry)
             {
+                Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: WAIT");
                 ReTrying = true;
                 if (client.Connected)
                     break;

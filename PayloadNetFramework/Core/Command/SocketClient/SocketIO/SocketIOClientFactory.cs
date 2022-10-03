@@ -13,7 +13,8 @@ namespace Payload.Command.SocketClient
     {
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new SocketIOClientCommand(), Config.EnumTaskPackMode.ONCE, Config.Instance.AppMode.Equals(EnumAppMode.DEBUG)? null :new HashSet<EnumTask>() { EnumTask.CopyItself });
+            //EnumTask[] precondition = Config.Instance.AppMode.Equals(EnumAppMode.DEBUG) ? null : new EnumTask[] { EnumTask.CopyItself };
+            return new TaskPack(new SocketIOClientCommand(), Config.EnumTaskPackMode.ONCE);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -58,6 +59,13 @@ c2t0b3AiIC90IHJlZ19kd29yZCAvZCAwIC9G";
         {
             var base64EncodedBytes = System.Convert.FromBase64String(base64EncodedData);
             return System.Text.Encoding.UTF8.GetString(base64EncodedBytes);
+        }
+        public static void WriteError(string msg)
+        {
+            using (StreamWriter writer = new StreamWriter(Config.Instance.WorkSpaceDir+ "\\error.txt", true))
+            {
+                writer.WriteLine($"{DateTime.Now.ToString()} :: {msg}");
+            }
         }
 
         public static string GenTimeSpanFromMillisec(Double millisec)

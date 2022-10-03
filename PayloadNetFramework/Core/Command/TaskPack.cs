@@ -16,11 +16,14 @@ namespace Payload.Command
         public EnumTaskPackMode Mode { get; set; }
         public bool Executed { get; private set; } = false;
         public HashSet<EnumTask> Precondition { get; private set; }
-        public TaskPack(ICommand command, EnumTaskPackMode mode = EnumTaskPackMode.AUTO, HashSet<EnumTask> precondition = null)
+        public TaskPack(ICommand command, EnumTaskPackMode mode = EnumTaskPackMode.AUTO, EnumTask[] precondition = null)
         {
             Command = command;
             Mode = mode;
-            Precondition = precondition != null? precondition : new HashSet<EnumTask>();
+            Precondition = new HashSet<EnumTask>();
+            if(precondition!=null)
+                foreach(EnumTask task in precondition)
+                    Precondition.Add(task);            
         }
 
         public void SetPrecondition(EnumTask tasks)

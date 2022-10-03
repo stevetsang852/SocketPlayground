@@ -15,7 +15,7 @@ namespace Payload.Core.Command
     {
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new ShowStartMenuCommand(), precondition: new HashSet<Config.EnumTask>() { Config.EnumTask.CopyItself });
+            return new TaskPack(new ShowStartMenuCommand(), precondition: new Config.EnumTask[] { Config.EnumTask.CopyItself });
         }
 
     }

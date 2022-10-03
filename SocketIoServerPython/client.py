@@ -1,9 +1,7 @@
 import uuid
 class Client:
-    sessionIdList = []
-    userId = ''
-    ip = ''
     def __init__(self, ip, sessionId):
+        self.sessionIdList = []
         self.userId = str(uuid.uuid4())
         self.sessionIdList.append(sessionId)
         self.ip = ip

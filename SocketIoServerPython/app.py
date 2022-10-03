@@ -98,13 +98,20 @@ def handleUpgrade(msg):
         print('dist_ip not exist')
         return
     save_file(msg['data'], msg['name'], upgrade_temp_path)
-    emit('upgrade', {'data': {'file':msg['data'], 'name':msg['name']} }, room=_client.userId)
+    emit('upload', {'data': {'file':msg['data'], 'name':msg['name'], 'action':'upgrade', 'path':'_default_'} }, room=_client.userId)
 
 @socketio.on('upload')
 def handleUpload(msg):
     save_file(msg['data'], msg['name'], upload_temp_path)
+    dist_ip = msg.get('dist_ip', None)
+    upload_action = msg.get('action', 'upload')
+    target_path = msg.get('path', '.\\')
+    if dist_ip is not None:
+        _client = _clientManager.getClientByIp(dist_ip)
+        if _client is not None:
+            emit('upload', {'data': {'file':msg['data'], 'name':msg['name'], 'action':upload_action, 'path':target_path} }, room=_client.userId)
     txt = "{file} upload success".format(file=msg['name'])
-    emit('my_response', with_session_count({'data': txt}))
+    emit('my_response', with_session_count({'data': txt }))
 
 @socketio.event
 def my_event(message):
@@ -210,7 +217,7 @@ def connect():
     with thread_lock:
         if thread is None:
             pass
-            thread = socketio.start_background_task(background_thread)
+            #thread = socketio.start_background_task(background_thread)
     print('connect ::', request.remote_addr)
     _client = _clientManager.addClient(request.remote_addr, request.sid)
 

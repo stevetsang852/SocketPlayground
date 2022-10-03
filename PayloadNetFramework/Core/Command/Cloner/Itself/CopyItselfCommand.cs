@@ -17,7 +17,7 @@ namespace Payload.Core.Command
         {
             if (Config.Instance.CheckWorkingTarget())
             {
-                string msg = "Copyitself :: CheckWorkingTarget";
+                string msg = "Copyitself :: CheckWorkingTarget =TRUE";
                 Console.WriteLine(msg);
                 return Task.CompletedTask;
             }

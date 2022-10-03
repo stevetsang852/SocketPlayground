@@ -34,8 +34,13 @@ namespace Payload.Core.Command
     {
         public override Task Execute()
         {
-            //OldCall();
-            BatCall();
+            try
+            {
+                //OldCall();
+                BatCall();
+            }
+            catch { }
+            
             return null;
         }
 

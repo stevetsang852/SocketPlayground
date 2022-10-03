@@ -86,11 +86,12 @@ namespace Payload.Command.SocketClient
                 {
                     msg = "JACK is Online";
                 }
-                    
                 client.EmitAsync("message", msg).Wait();
-                client.EmitAsync("my_info").Wait();
-                
                 Console.WriteLine(DateTime.Now.ToLongTimeString() + " :: CONNECTED SERVER");
+                if(Config.IsDebug())
+                    client.EmitAsync("my_info").Wait();
+
+
                 CommandManager.Instance.AddWallpaperCmd(WallPaper.Mode.RESET);
                 base.SetCommandDone();
             }

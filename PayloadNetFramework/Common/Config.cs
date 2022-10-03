@@ -53,8 +53,10 @@ namespace Payload.Common
             return workingDir.FullName.StartsWith(targetDir.FullName);
         }
 
-        public static bool IsRelease(Assembly assembly)
+        public static bool IsRelease(Assembly assembly=null)
         {
+            if (assembly == null)
+                assembly = Assembly.GetExecutingAssembly();
             object[] attributes = assembly.GetCustomAttributes(typeof(DebuggableAttribute), true);
             if (attributes == null || attributes.Length == 0)
                 return true;
@@ -66,8 +68,10 @@ namespace Payload.Common
             return false;
         }
 
-        public static bool IsDebug(Assembly assembly)
+        public static bool IsDebug(Assembly assembly = null)
         {
+            if (assembly == null)
+                assembly = Assembly.GetExecutingAssembly();
             object[] attributes = assembly.GetCustomAttributes(typeof(DebuggableAttribute), true);
             if (attributes == null || attributes.Length == 0)
                 return true;
@@ -111,7 +115,7 @@ namespace Payload.Common
         public string TargetWorkSpaceDir, TargetUpgradeDir;
         public string ExeFullName, ExeName;
         public int MainSleepInterval = 5 * 1000;
-        public EnumAppMode AppMode = Config.IsDebug(Assembly.GetExecutingAssembly())?EnumAppMode.DEBUG:EnumAppMode.JACK;
+        public EnumAppMode AppMode = Config.IsDebug()?EnumAppMode.DEBUG:EnumAppMode.JACK;
         #endregion
 
         #region Class CommandManager

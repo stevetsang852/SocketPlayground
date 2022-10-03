@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{903E5AF3-3437-4FB3-87E4-76089654510A}</ProjectGuid>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <RootNamespace>Payload</RootNamespace>
     <AssemblyName>Intel%28R%29 Graphics Drivers for Windows</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
@@ -98,6 +98,7 @@
     <Compile Include="Common\BytesHelper.cs" />
     <Compile Include="Common\CmdHelper.cs" />
     <Compile Include="Common\DesktopUtility.cs" />
+    <Compile Include="Common\FileHelper.cs" />
     <Compile Include="Common\ImageHelper.cs" />
     <Compile Include="Common\TextHelper.cs" />
     <Compile Include="Common\ZipHelper.cs" />

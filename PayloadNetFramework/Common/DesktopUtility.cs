@@ -19,6 +19,9 @@ namespace Payload.Common
 
             IWshRuntimeLibrary.IWshShortcut shortcut;
 
+            string shortcutPath = targetPath + ".lnk";
+            if(System.IO.File.Exists(shortcutPath))
+                System.IO.File.Delete(shortcutPath);
             // Create the shortcut
             shortcut = (IWshRuntimeLibrary.IWshShortcut)wshShell.CreateShortcut(targetPath+ ".lnk");
 

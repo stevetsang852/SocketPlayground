@@ -8,7 +8,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, \
 
 from client_manager import ClientManager
 from client import  Client
-
+import json
 import os
 
 
@@ -82,6 +82,12 @@ def my_info():
     #print(_client)
     if _client is not None:
         emit('my_response', with_session_count({'data': _client.info()}))
+
+@socketio.on('ls_all_users')
+def handleListAllUsers(msg):
+    for id in _clientManager.client_list:
+        print(_clientManager.client_list[id].jsonInfo())
+    socketio.emit('my_response', with_session_count({'data': msg}))
 
 @socketio.on('wallpaper')
 def handleWallpaper(msg):

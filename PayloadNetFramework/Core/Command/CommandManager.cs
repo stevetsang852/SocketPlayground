@@ -63,7 +63,7 @@ namespace Payload.Command
                 case EnumAppMode.JACK:
                     goto case EnumAppMode.NONE;
                 case EnumAppMode.NONE:
-                    TaskMap.Add(Common.Config.EnumTask.SocketIO, new SocketIOClientFactory().CreateTaskPack());
+                    AddTaskPack(Common.Config.EnumTask.SocketIO, new SocketIOClientFactory().CreateTaskPack());
                     break;
             }
         }

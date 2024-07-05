@@ -1,4 +1,5 @@
 import uuid
+import json
 class Client:
     def __init__(self, ip, sessionId):
         self.sessionIdList = []
@@ -16,3 +17,6 @@ class Client:
     def info(self):
         info = " ip: {uip} | id: {uid} | sids: {sid}".format(uip=self.ip, uid=self.userId, sid=' , '.join(self.sessionIdList))
         return info
+    
+    def jsonInfo(self):
+        return json.dumps(self.__dict__)

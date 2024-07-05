@@ -53,6 +53,12 @@
                 $('#ping-pong').text(Math.round(10 * sum / ping_pong_times.length) / 10);
             });
 
+
+            $('form#execute').submit(function(event) {
+                socket.emit($('#emit_action').val(), {data: $('#emit_data').val()});
+                return false;
+            });
+
             $('#my_info').click(function(event) {
                 socket.emit('my_info');
                 return false;
@@ -147,6 +153,11 @@
       Average ping/pong latency: <b><span id="ping-pong"></span>ms</b>
     </p>
     <h2>Send:</h2>
+    <form id="execute" method="POST" action='#'>
+        <input type="text" name="emit_action" id="emit_action" placeholder="Action">
+        <input type="text" name="emit_data" id="emit_data" placeholder="Data">
+        <input type="submit" value="Execute">
+    </form>
     <input type="button" id="my_info" value="My Info">
     <form id="emit" method="POST" action='#'>
         <input type="text" name="emit_data" id="emit_data" placeholder="Message">

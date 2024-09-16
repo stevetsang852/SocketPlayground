@@ -10,12 +10,8 @@ using System.Threading.Tasks;
 
 namespace Payload.Core.Command
 {
-    public class CopyItselfFactory : Payload.Command.Interface.IFactory
+    public class CopyItselfFactory : Payload.Command.Interface.IFactory<CopyItselfCommand>
     {
-        public override ICommand CreateCommand()
-        {
-            return new CopyItselfCommand();
-        }
         public override TaskPack CreateTaskPack()
         {
             return new TaskPack(new CopyItselfCommand(), Common.Config.EnumTaskPackMode.EXIT);

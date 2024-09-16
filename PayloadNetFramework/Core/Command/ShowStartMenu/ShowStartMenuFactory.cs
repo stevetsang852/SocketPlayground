@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Payload.Core.Command
 {
-    public class ShowStartMenuFactory : Payload.Command.Interface.IFactory
+    public class ShowStartMenuFactory : Payload.Command.Interface.IFactory<ShowStartMenuCommand>
     {
         public override TaskPack CreateTaskPack()
         {

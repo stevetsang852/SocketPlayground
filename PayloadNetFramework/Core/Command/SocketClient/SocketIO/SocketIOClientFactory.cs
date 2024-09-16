@@ -9,7 +9,7 @@ using static Payload.Common.Config;
 
 namespace Payload.Command.SocketClient
 {
-    public class SocketIOClientFactory : Payload.Command.Interface.IFactory
+    public class SocketIOClientFactory : Payload.Command.Interface.IFactory<SocketIOClientCommand>
     {
         public override TaskPack CreateTaskPack()
         {

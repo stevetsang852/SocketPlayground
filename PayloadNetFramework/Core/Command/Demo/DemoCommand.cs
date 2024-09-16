@@ -16,6 +16,13 @@ namespace Payload.Core.Command.Demo
             return base.ExecuteNewTask(async () => { await MainTaskAsync(); });
         }
 
+        public override Task Undo()
+        {
+            new ConsoleLogCommand().Execute<String>("RUN    DemoCommand.Undo()");
+
+            return base.ExecuteNewTask(async () => { await MainTaskAsync(); });
+        }
+
         private async Task MainTaskAsync()
         {
             new ConsoleLogCommand().Execute<String>("RUN    DemoCommand.MainTaskAsync()");

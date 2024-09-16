@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Payload.Core.Command
 {
-    public class ConsoleLogFactory : Payload.Command.Interface.IFactory
+    public class ConsoleLogFactory : Payload.Command.Interface.IFactory<ConsoleLogCommand>
     {
         public override TaskPack CreateTaskPack()
         {

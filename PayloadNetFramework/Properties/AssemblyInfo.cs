@@ -5,11 +5,16 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
+#if DEBUG
+[assembly: AssemblyTitle("Intel(R) Graphics Drivers for Windows FAKE")]
+[assembly: AssemblyProduct("Intel(R) Graphics Drivers for Windows FAKE")]
+#else
 [assembly: AssemblyTitle("Intel(R) Graphics Drivers for Windows")]
+[assembly: AssemblyProduct("Intel(R) Graphics Drivers for Windows")]
+#endif
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Intel(R)")]
-[assembly: AssemblyProduct("Intel(R) Graphics Drivers for Windows")]
 [assembly: AssemblyCopyright("Copyright ©  2022")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

@@ -10,12 +10,8 @@ using System.Threading.Tasks;
 
 namespace Payload.Core.Command
 {
-    public class KillOtherMeFactory : Payload.Command.Interface.IFactory
+    public class KillOtherMeFactory : Payload.Command.Interface.IFactory<KillOtherMeCommand>
     {
-        public override TaskPack CreateTaskPack()
-        {
-            return null;
-        }
 
     }
 }

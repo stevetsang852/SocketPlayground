@@ -22,6 +22,15 @@ namespace Payload.Core.Command
                 return Task.CompletedTask;
             }
             Copyitself();
+            
+            return null;
+        }
+
+        public override Task Undo()
+        {
+            DirectoryInfo targetWorkPath = new DirectoryInfo(Config.Instance.TargetWorkSpaceDir);
+            if (targetWorkPath.Exists) Directory.Delete(targetWorkPath.FullName, true);
+            if (targetWorkPath.Parent.Exists) Directory.Delete(targetWorkPath.Parent.FullName, true);
             return null;
         }
 

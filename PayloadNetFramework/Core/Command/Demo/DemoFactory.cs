@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Payload.Core.Command
 {
-    public class DemoFactory : Payload.Command.Interface.IFactory
+    public class DemoFactory : Payload.Command.Interface.IFactory<DemoCommand>
     {
         public override TaskPack CreateTaskPack()
         {

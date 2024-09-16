@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Payload.Core.Command
 {
-    public class RegistryKeyFactory : Payload.Command.Interface.IFactory<RegistryKeyCommand>
+    public class RegistryKeyBatFactory : Payload.Command.Interface.IFactory<RegistryKeyBatCommand>
     {
 
     }

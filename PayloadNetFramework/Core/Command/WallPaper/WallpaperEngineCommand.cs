@@ -20,9 +20,6 @@ namespace Payload.Command.WallPaper
     }
     public class WallpaperEngineCommand : Payload.Command.Interface.ICommand
     {
-        private readonly static long _defaultInterval = Config.Instance.WallpaperEngineCommandDefaultInterval;
-        private readonly static long _factoryInterval = Config.Instance.WallpaperEngineFactoryInitInterval;
-
         public Payload.Command.WallPaper.Mode CurrentMode { get; set; } = Payload.Command.WallPaper.Mode.NONE;
         
         public FileInfo[] imgList { get; private set; }
@@ -136,11 +133,6 @@ namespace Payload.Command.WallPaper
                 }
             }
             return currentPhoto;
-        }
-
-        private TimeSpan GetDefaultInterval(long _l = long.MinValue)
-        {
-            return TimeSpan.FromMilliseconds(_l!=long.MinValue ? _l:_defaultInterval);
         }
 
         #region Wallpaper System

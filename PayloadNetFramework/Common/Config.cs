@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Diagnostics.DebuggableAttribute;
 using static System.Environment;
 
 namespace Payload.Common
@@ -70,6 +71,9 @@ namespace Payload.Common
 
         public static bool IsDebug(Assembly assembly = null)
         {
+#if DEBUG
+            return true;
+#endif
             if (assembly == null)
                 assembly = Assembly.GetExecutingAssembly();
             object[] attributes = assembly.GetCustomAttributes(typeof(DebuggableAttribute), true);

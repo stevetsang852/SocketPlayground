@@ -18,11 +18,7 @@ namespace Payload.Core.Command
 
     public class StartProcessCommand : Payload.Command.Interface.ICommand
     {
-        StartProcessCommandProps Props;
-        public StartProcessCommand(StartProcessCommandProps props)
-        {
-            Props = props;
-        }
+        public StartProcessCommandProps Props { get; set; }
         public override Task Execute()
         {
             string workingDir = Props!= null ? Props.TargetWorkSpaceDir : Config.Instance.TargetWorkSpaceDir;

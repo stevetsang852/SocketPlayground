@@ -10,7 +10,7 @@ using static Payload.Common.Config;
 
 namespace Payload.Core.Command
 {
-    public class ClearOtherPatchFactory : Payload.Command.Interface.IFactory
+    public class ClearOtherPatchFactory : Payload.Command.Interface.IFactory<ClearOtherPatchCommand>
     {
         public override TaskPack CreateTaskPack()
         {

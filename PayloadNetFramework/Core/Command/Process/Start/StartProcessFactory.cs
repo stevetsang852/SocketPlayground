@@ -10,15 +10,13 @@ using System.Threading.Tasks;
 
 namespace Payload.Core.Command
 {
-    public class StartProcessFactory : Payload.Command.Interface.IFactory
+    public class StartProcessFactory : Payload.Command.Interface.IFactory<StartProcessCommand>
     {
         public StartProcessFactory(StartProcessCommandProps props=null)
         {
-            base.Command = new StartProcessCommand(props);
-        }
-        public override TaskPack CreateTaskPack()
-        {
-            return null;
+            StartProcessCommand _cmd = new StartProcessCommand();
+            _cmd.Props = props;
+            base.Command = _cmd;
         }
 
     }

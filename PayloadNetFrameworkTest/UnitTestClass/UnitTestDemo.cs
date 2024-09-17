@@ -9,7 +9,7 @@ namespace PayloadNetFrameworkTest
     public class UnitTestDemo
     {
         [TestMethod]
-        public void TestMethodDemo()
+        public void TestMethodDemoCommand()
         {
             DemoCommand cmd = new DemoFactory().CreateCommand();
             cmd.Execute();

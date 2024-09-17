@@ -57,6 +57,7 @@
     <Compile Include="UnitTestClass\Interface\BaseUnitTest.cs" />
     <Compile Include="UnitTestClass\RegistryKeyUnitTest.cs" />
     <Compile Include="UnitTestClass\CopyItseftUnitTest.cs" />
+    <Compile Include="UnitTestClass\StartProcessTest.cs" />
     <Compile Include="UnitTestClass\UnitTestDemo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

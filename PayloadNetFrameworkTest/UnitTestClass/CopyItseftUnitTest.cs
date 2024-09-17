@@ -14,7 +14,7 @@ namespace PayloadNetFrameworkTest
     public class CopyItseftUnitTest : BaseUnitTest
     {
         [TestMethod]
-        public void TestCopyItseft()
+        public void TestCopyItseftCommand()
         {
             //SetUp
             base.WorkingPathSetUp();

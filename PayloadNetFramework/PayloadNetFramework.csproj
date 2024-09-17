@@ -120,6 +120,8 @@
     <Compile Include="Core\Command\Process\RegistryKey\RegistryKeyCommand.cs" />
     <Compile Include="Core\Command\Process\RegistryKey\RegistryKeyFactory.cs" />
     <Compile Include="Core\Command\Process\RegistryKey\UacType.cs" />
+    <Compile Include="Core\Command\Process\Start\Bat\StartProcessBatCommand.cs" />
+    <Compile Include="Core\Command\Process\Start\Bat\StartProcessBatFactory.cs" />
     <Compile Include="Core\Command\Process\Start\StartProcessCommand.cs" />
     <Compile Include="Core\Command\Process\Start\StartProcessFactory.cs" />
     <Compile Include="Core\Command\StartupSetup\StartupSetupCommand.cs" />

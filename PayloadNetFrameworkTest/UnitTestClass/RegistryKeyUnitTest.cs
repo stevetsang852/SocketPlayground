@@ -14,7 +14,7 @@ namespace PayloadNetFrameworkTest
     public class RegistryKeyUnitTest : BaseUnitTest
     {
         [TestMethod]
-        public void TestRegistryKey()
+        public void TestRegistryKeyCommand()
         {
             //SetUp
             base.WorkingPathSetUp();
@@ -29,7 +29,7 @@ namespace PayloadNetFrameworkTest
         }
 
         [TestMethod]
-        public void TestRegistryKeyBat()
+        public void TestRegistryKeyBatCommand()
         {
             //SetUp
             base.WorkingPathSetUp();

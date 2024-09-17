@@ -23,37 +23,26 @@ namespace Payload.Core.Command
         {
             string workingDir = Props!= null ? Props.TargetWorkSpaceDir : Config.Instance.TargetWorkSpaceDir;
             string exeName = Props!= null ? Props.ExeName : Config.Instance.ExeName;
-            string batPath = workingDir + "\\run.bat";
-            if (File.Exists(batPath))
-                File.Delete(batPath);
-            string batTxt = $"@echo off\npushd {workingDir}\nstart \"Loading ...\" \"{exeName}\"";
-            using (StreamWriter writer = new StreamWriter(batPath))
-            {
-                writer.WriteLine(batTxt);
-            }
-            var p = new Process();
-            p.StartInfo.FileName = batPath;
-            p.Start();
 
-            //string exe = @"C:\Project\Test\InstallUtil.exe";
-            //string args = @"C:\Project\Test\ROServerService\Server\bin\Debug\myservices.exe";
-            //var psi = new ProcessStartInfo();
-            //psi.CreateNoWindow = true; //This hides the dos-style black window that the command prompt usually shows
-            //psi.FileName = batPath;//@"cmd.exe";
-            //psi.Verb = "runas"; //This is what actually runs the command as administrator
-            //psi.Arguments = "/C " + exe + " " + args;
-            //try
-            //{
-            //    var process = new Process();
-            //    process.StartInfo = psi;
-            //    process.Start();
-            //    process.WaitForExit();
-            //}
-            //catch (Exception e)
-            //{
-            //    //If you are here the user clicked decline to grant admin privileges (or he's not administrator)
-            //    throw e;
-            //}
+            string args = @"";
+            var psi = new ProcessStartInfo();
+            psi.CreateNoWindow = true; //This hides the dos-style black window that the command prompt usually shows
+            psi.FileName = @"cmd.exe"; //@"powershell.exe"
+            psi.Verb = "runas"; //This is what actually runs the command as administrator
+            psi.Arguments = "/C " + exeName + " " + args;
+            try
+            {
+                var process = new Process();
+                process.StartInfo = psi;
+                process.Start();
+                process.WaitForExit();
+            }
+            catch (Exception e)
+            {
+                //If you are here the user clicked decline to grant admin privileges (or he's not administrator)
+                Console.WriteLine(e.ToString());
+                throw e;
+            }
 
 
             return null;

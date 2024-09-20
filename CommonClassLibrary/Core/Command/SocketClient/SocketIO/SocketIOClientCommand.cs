@@ -40,6 +40,8 @@ namespace Payload.Command.SocketClient
                 client = sic.client;
                 client.OnConnected += Client_OnConnected;
                 client.OnDisconnected += Client_OnDisconnected;
+                client.OnReconnectAttempt += Client_OnReconnectAttempt;
+                client.OnReconnected += Client_OnReconnected;
                 client.OnReconnectError += Client_OnReconnectError;
                 client.OnReconnectFailed += Client_OnReconnectFailed;                
             }
@@ -47,6 +49,16 @@ namespace Payload.Command.SocketClient
             {
                 Console.WriteLine(e.Message);
             }
+        }
+
+        private void Client_OnReconnected(object? sender, int e)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void Client_OnReconnectAttempt(object? sender, int e)
+        {
+            throw new NotImplementedException();
         }
 
         private void Client_OnReconnectFailed(object sender, EventArgs e)

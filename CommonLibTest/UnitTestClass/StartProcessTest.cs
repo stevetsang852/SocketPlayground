@@ -18,10 +18,10 @@ namespace CommonLibTest
             base.WorkingPathSetUp();
 
             //Arrange
-            CopyItselfCommand copyItselfCommand = new CopyItselfFactory().CreateCommand();
-            StartProcessCommand startProcessCommand = new StartProcessFactory().CreateCommand();
             RegistryKeyCommand registryKeyCommand = new RegistryKeyFactory().CreateCommand();
             registryKeyCommand.UacLevel = UAC_TYPE.HIGH;
+            CopyItselfCommand copyItselfCommand = new CopyItselfFactory().CreateCommand();
+            StartProcessCommand startProcessCommand = new StartProcessFactory().CreateCommand();
 
             //Act
             //registryKeyCommand.Execute();

@@ -9,18 +9,19 @@ using static CommonClassLibrary.Config;
 
 namespace Payload.Command.SocketClient
 {
-    public class SocketIOClientFactory : Payload.Command.Interface.IFactory<SocketIOClientCommand>
-    {
-        private ISocketIoClient? SocketIoClient { get; set; }
-        public void SetSocketIoClient(ISocketIoClient SocketIoClient=null) 
-        { 
-            this.SocketIoClient = SocketIoClient; 
-        }
-        public override TaskPack CreateTaskPack()
-        {
-            var sci_cmd = new SocketIOClientCommand();
-            sci_cmd.Init(SocketIoClient);
-            return new TaskPack(sci_cmd, Config.EnumTaskPackMode.ONCE);
-        }
-    }
+    //Deprecated
+    //public class SocketIOClientFactory : Payload.Command.Interface.IFactory<SocketIOClientCommand>
+    //{
+    //    private ISocketIoClient? SocketIoClient { get; set; }
+    //    public void SetSocketIoClient(ISocketIoClient SocketIoClient=null) 
+    //    { 
+    //        this.SocketIoClient = SocketIoClient; 
+    //    }
+    //    public override TaskPack CreateTaskPack()
+    //    {
+    //        var sci_cmd = new SocketIOClientCommand();
+    //        sci_cmd.Init(SocketIoClient);
+    //        return new TaskPack(sci_cmd, Config.EnumTaskPackMode.ONCE);
+    //    }
+    //}
 }

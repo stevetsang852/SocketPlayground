@@ -138,7 +138,7 @@ namespace CommonClassLibrary
 
         #region Class SocketIOClientCommand
         public long SocketIOClientCommandDefaultInterval = 60 * 1000;
-        public string SocketIOClientCommandServerHost = "http://127.0.0.1:5556";
+        public readonly static string SocketIOClientCommandServerHost = "http://127.0.0.1:5556";
         #endregion
     }
 }

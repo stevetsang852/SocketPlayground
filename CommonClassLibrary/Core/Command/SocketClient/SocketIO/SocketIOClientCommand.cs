@@ -11,7 +11,8 @@ using static CommonClassLibrary.Config;
 
 namespace Payload.Command.SocketClient
 {
-    public class SocketIOClientCommand : Payload.Command.Interface.ICommand
+    //Deprecated
+    public abstract class SocketIOClientCommand : Payload.Command.Interface.ICommand
     {
         ISocketIoClient sic;
         SocketIOClient.SocketIO client;

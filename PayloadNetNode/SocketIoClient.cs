@@ -13,8 +13,9 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using CommonClassLibrary;
 using static CommonClassLibrary.Config;
+using Payload.Core.Command;
 
-namespace Payload.Core.Command.SocketClient
+namespace Payload
 {
     public class IBasicResProps<T>
     {
@@ -32,12 +33,11 @@ namespace Payload.Core.Command.SocketClient
     public class SocketIoClient : ISocketIoClient
     {
 
-        public SocketIoClient(string serverHost)
-        {
-            ServerHost = serverHost;
-            client = new SocketIOClient.SocketIO(serverHost);
+        public SocketIoClient(string serverHost): base(serverHost) 
+        {            
             Init();
             RenameAllImage();
+            base.StartClient();
         }
 
         private void Init()

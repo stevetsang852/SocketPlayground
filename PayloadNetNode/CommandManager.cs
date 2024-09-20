@@ -38,9 +38,9 @@ namespace Payload.Command
             }
         }
         #endregion
-        public Dictionary<Config.EnumTask, TaskPack> TaskMap { get; private set; }
-        public HashSet<Config.EnumTask> DieTask { get; private set; }
-        public Dictionary<Config.EnumTask, bool> FlagMap { get; private set; }
+        private Dictionary<Config.EnumTask, TaskPack> TaskMap { get; set; }
+        private HashSet<Config.EnumTask> DieTask { get; set; }
+        private Dictionary<Config.EnumTask, bool> FlagMap { get; set; }
 
         private void Init() // Task Mapping 
         {

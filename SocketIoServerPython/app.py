@@ -30,11 +30,8 @@ upgrade_temp_path = 'temp/upgrade'
 socketio = SocketIO(app, async_mode=async_mode , max_http_buffer_size=MAX_BUFFER_SIZE, cors_allowed_origins='*', debug=True)
 thread = None
 thread_lock = Lock()
-thread_lock_dis = Lock()
 
 _clientManager = ClientManager()
-
-thread_pool_drop_check={}
 status_pool = {}
 
 def with_session_count(data):
@@ -291,7 +288,6 @@ def send_to_ip(message):
 @socketio.event
 def connect():
     global thread
-    global thread_pool_drop_check
     _client = _clientManager.addClient(request.remote_addr, request.sid)
     join_room(_client.userId)
     txt = "sid={sid} | {info}".format(sid=request.sid,info=_client.info())

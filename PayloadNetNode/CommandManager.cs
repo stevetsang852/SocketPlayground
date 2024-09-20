@@ -136,14 +136,15 @@ namespace Payload.Command
                 TaskPack _tp = taskPack.Value;
                 if (_tp == null)
                     continue;
-                if (!_tp.ShouldCallRun || (_tp.Mode.Equals(EnumTaskPackMode.ONCE) && _tp.Executed))
+                if (!_tp.ShouldCallRun) //Not can run 
                     continue;
-                if (_tp.Task != null && _tp.Task.Status.Equals(TaskStatus.Running))
+                if (_tp.Mode.Equals(EnumTaskPackMode.ONCE) && _tp.Executed) //Already ran and type is once
                     continue;
-                if (_tp.Precondition.Count > 0 && !TaskDone(_tp.Precondition))
+                if (_tp.Task != null && _tp.Task.Status.Equals(TaskStatus.Running))// Task is RUNNING
                     continue;
-
-                if (_tp.Mode.Equals(EnumTaskPackMode.NONE))
+                if (_tp.Precondition.Count > 0 && !TaskDone(_tp.Precondition)) // Wait all Precondition DONE
+                    continue;
+                if (_tp.Mode.Equals(EnumTaskPackMode.NONE)) //Clear all NONE Type Task
                 {
                     if (!DieTask.Contains(taskPack.Key))
                         DieTask.Add(taskPack.Key);

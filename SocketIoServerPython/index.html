@@ -20,7 +20,7 @@
         });
 
         socket.on("status", function (msg) {
-          console.log(`status ${msg}`);
+          console.log(`status ${msg.data}`);
           socket.emit("get_status", msg)
         });
 

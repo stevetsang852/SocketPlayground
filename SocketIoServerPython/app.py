@@ -56,6 +56,12 @@ def background_thread():
                 print(room_txt)
                 rooms = allrooms[room]
                 for room_list in  rooms.keys():
+                    if room_list is None:
+                        outdated = list(set(status_pool.keys()) - set(rooms[room_list].keys()))
+                        for oid in outdated:
+                            del status_pool[oid]
+                        for clientSid in rooms[room_list].keys():
+                            drop_check(clientSid)
                     #if room_list is not None:
                         #print(room_list_txt)
                     print("ROOM: {room_list} :: {joined_client}".format(room_list = room_list, joined_client=', '.join(rooms[room_list])))
@@ -173,35 +179,52 @@ def my_room_event(message):
     emit('my_response',
          {'data': message['data'], 'count': session['receive_count']},
          to=message['room'])
-
-def can_disconnect(sid):
-    print('callback=can_disconnect')
+        
+def execute_disconnect_by_session_id(sid):
     if sid is None:
         return True
     _client = _clientManager.getClientBySid(sid)
     if _client is None:
-        socketio.server.disconnect(sid)
         return True
-    _clientManager.rmSession(_client.ip, sid)
     room_list = copy.deepcopy(socketio.server.manager.rooms)
     for room in room_list.keys():
-        socketio.server.leave_room(sid, room)        
+        socketio.server.leave_room(sid, room)
     socketio.server.close_room(sid)
-
-    inner_join = list(set(_client.sessionIdList) & set(room_list))
-    for sid in _client.sessionIdList:
-        if sid not in inner_join:
-            _client.rmSession(sid)
-    if _client.userId in room_list:
-        print('room_list')
-        print(room_list)
-        if len(_client.sessionIdList) == 0:            
-            socketio.server.close_room(_client.userId)
-            for room in room_list.keys():
-                socketio.server.leave_room(_client.userId, room)
     socketio.server.disconnect(sid)
-    print('Disconnected ::{sid}'.format(sid=sid))
+    _clientManager.rmSession(_client.ip, sid)
+    sIdListCount = len(_client.sessionIdList)
+    if sIdListCount == 0 :
+        socketio.server.close_room(_client.userId)
     return True
+
+# def can_disconnect(sid):
+#     print('callback=can_disconnect')
+#     if sid is None:
+#         return True
+#     _client = _clientManager.getClientBySid(sid)
+#     if _client is None:
+#         socketio.server.disconnect(sid)
+#         return True
+#     _clientManager.rmSession(_client.ip, sid)
+#     room_list = copy.deepcopy(socketio.server.manager.rooms)
+#     for room in room_list.keys():
+#         socketio.server.leave_room(sid, room)        
+#     socketio.server.close_room(sid)
+
+#     inner_join = list(set(_client.sessionIdList) & set(room_list))
+#     for sid in _client.sessionIdList:
+#         if sid not in inner_join:
+#             _client.rmSession(sid)
+#     if _client.userId in room_list:
+#         print('room_list')
+#         print(room_list)
+#         if len(_client.sessionIdList) == 0:            
+#             socketio.server.close_room(_client.userId)
+#             for room in room_list.keys():
+#                 socketio.server.leave_room(_client.userId, room)
+#     socketio.server.disconnect(sid)
+#     print('Disconnected ::{sid}'.format(sid=sid))
+#     return True
 
 @socketio.event
 def disconnect_request():
@@ -211,39 +234,43 @@ def disconnect_request():
     # received and it is safe to disconnectl
     emit('my_response',
          with_session_count({'data': 'Disconnected!'}),
-         callback=can_disconnect(request.sid))
+         callback=execute_disconnect_by_session_id(request.sid))
 
 def foo(count):
     print('{count}, {ctime}'.format(count=count, ctime=time.ctime()))
 
+@socketio.event
+def get_status(message):
+    data = message['data']
+    num = status_pool.get(request.sid)
+    flag = (num == data)
+    if not flag:
+        print(data)
+        print(num)
+    if flag :
+        status_pool[request.sid] = True
+    print('get_status {num} {flag}::{sid}'.format(num=data, flag=flag,sid=request.sid))
+
 def drop_check(sid):
+    global status_pool
     #print('drop_check ::{sid}'.format(sid=sid))
     if sid is None:
         return    
-    disconnected = False
-    num = random.random()
-    global status_pool
-    @socketio.event
-    def get_status(message):
-        flag = (num == message['data'])
-        if flag :
-            status_pool[sid] = True
-            #print('kill status :: {sid}'.format(sid=sid))
-        print('get_status {num} {flag}'.format(num=message, flag=flag))
-    while (not disconnected): 
-        try:
-            num = random.random()
-            socketio.call('status', {'data': num}, to=sid, timeout=5.0)
-        except Exception as ex:
-            if type(ex).__name__ == 'TimeoutError':
-                if status_pool.get(sid) is not None:
-                    del status_pool[sid]
-                    #print('kill status OK')
-                    socketio.sleep(num*5)
-                    continue            
-                #print('{sid} :: fail status'.format(sid=sid))
-                with app.app_context():
-                    disconnected = can_disconnect(sid)
+    try:
+        num = random.random()
+        status_pool[sid] = num
+        print('check {num}::{sid}'.format(num=num, sid=sid))
+        print(status_pool)
+        socketio.call('status', {'data': num}, to=sid, timeout=5.0)
+    except Exception as ex:
+        if type(ex).__name__ == 'TimeoutError':
+            if status_pool.get(sid) == True:
+                #print('kill status OK')
+                socketio.sleep(num*5)
+                return
+            del status_pool[sid]
+            execute_disconnect_by_session_id(sid)
+            print('{sid} :: fail status'.format(sid=sid))
 
 @socketio.event
 def my_ping():
@@ -272,19 +299,7 @@ def connect():
     with thread_lock:        
         if thread is None:
             pass
-            thread = socketio.start_background_task(target=background_thread)        
-    with thread_lock_dis:
-        thread_drop_check = thread_pool_drop_check.get(request.sid)
-        if thread_drop_check is None:
-            thread_drop_check = socketio.start_background_task(target=drop_check, sid=request.sid)
-            thread_pool_drop_check[request.sid] = thread_drop_check
-            #print(thread_pool_drop_check.get(request.sid))
-        
-
-
-#@socketio.on('disconnect')
-#def test_disconnect():
-    #print('Client disconnected', request.sid)
+            thread = socketio.start_background_task(target=background_thread)
 
 
 if __name__ == '__main__':

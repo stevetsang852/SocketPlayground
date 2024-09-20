@@ -1,62 +1,86 @@
 <html>
-<head>
-<title>Chat Room</title>
-<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
-</head>
-<body>
-<script type="text/javascript">
-$(document).ready(function() {
+  <head>
+    <title>Chat Room</title>
+    <script
+      type="text/javascript"
+      src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.min.js"
+    ></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
+  </head>
+  <body>
+    <script type="text/javascript">
+      $(document).ready(function () {
+        const socket = io.connect("http://127.0.0.1:5556");
+        // var socket = io.connect('http://192.168.88.240:5000');
+        // var socket = io.connect('http://192.168.88.221:55699');
+        // var socket = io.connect('http://127.0.0.1:55699');
+        socket.on("connect", function () {
+          socket.send("User has connected!");
+          socket.emit("connection", { data: { name: "TEST" } });
+        });
 
-	var socket = io.connect('http://192.168.88.221:5556');
-	// var socket = io.connect('http://192.168.88.240:5000');
-	// var socket = io.connect('http://192.168.88.221:55699');
-	// var socket = io.connect('http://127.0.0.1:55699');
-	socket.on('connect', function() {
-		socket.send('User has connected!');
-		socket.emit('connection', {data:{name:"TEST"}});
-	});
+        socket.on("status", function (msg) {
+          console.log(`status ${msg.data}`);
+          // socket.emit("status", msg)
+          socket.emit("get_status", msg)
+        });
 
-	socket.on('message', function(msg) {
-		$("#messages").append('<li>'+msg+'</li>');
-		console.log('Received message');
-	});
+        socket.on("message", function (msg) {
+          $("#messages").append("<li>" + msg + "</li>");
+          console.log("Received message");
+        });
 
-	socket.on('wallpaper', function(msg) {
-		$("#messages").append('<li style="color:red;">'+msg.data+'</li>');
-		console.log('wallpaper');
-	});
+        socket.on("my_response", function (msg) {
+          if (typeof msg == "object")
+            $("#messages").append(
+              "<li>Received #" + msg.count + ": " + msg.data + "</li>"
+            );
+          else $("#messages").append("<li>" + msg + "</li>");
+          console.log("Received message");
+        });
 
-	$('#sendbutton').on('click', function() {
-		socket.send($('#myMessage').val());
-		$('#myMessage').val('');
-	});
+        socket.on("wallpaper", function (msg) {
+          $("#messages").append('<li style="color:red;">' + msg.data + "</li>");
+          console.log("wallpaper");
+        });
 
-	$('#wp').on('click', function() {
-		socket.emit('wallpaper', {data:$('#myMessage').val()});
-		$('#myMessage').val('');
-	});
-	
-	$('#upload').on('click', function() {
-	socket.emit('upload', {data:$('#myMessage').val()});
-	$('#myMessage').val('');
-	});
+        $("#sendbutton").on("click", function () {
+          const dataVal = $("#myMessage").val();
+          const data = dataVal ? undefined : { data: dataVal };
+          socket.emit($("#targetEvent").val(), data);
+          $("#myMessage").val("");
+          $("#targetEvent").val("");
+        });
 
-	function upload(files) {
-		socket.emit("upload", files[0], (status) => {
-			console.log(status);
-			$("#messages").append('<li style="color:red;">'+status+'</li>');
-		});
-	}
+        $("#wp").on("click", function () {
+          socket.emit("wallpaper", { data: $("#myMessage").val() });
+          $("#myMessage").val("");
+        });
 
+        $("#upload").on("click", function () {
+          socket.emit("upload", { data: $("#myMessage").val() });
+          $("#myMessage").val("");
+        });
 
-});
-</script>
-<ul id="messages"></ul>
-<input type="text" id="myMessage">
-<button id="sendbutton">Send</button>
-<button id="wp">WP</button>
-<input type="file" onchange="upload(this.files)" />
-<button id="upload">upload</button>
-</body>
+        function upload(files) {
+          socket.emit("upload", files[0], (status) => {
+            console.log(status);
+            $("#messages").append('<li style="color:red;">' + status + "</li>");
+          });
+        }
+
+        $(window).bind("beforeunload", function () {
+          socket.emit("disconnect_request");
+          return "wait";
+        });
+      });
+    </script>
+    <input type="text" id="targetEvent" />
+    <input type="text" id="myMessage" />
+    <button id="sendbutton">Send</button>
+    <button id="wp">WP</button>
+    <input type="file" onchange="upload(this.files)" />
+    <button id="upload">upload</button>
+    <ul id="messages"></ul>
+  </body>
 </html>

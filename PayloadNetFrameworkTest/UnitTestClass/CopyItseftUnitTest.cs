@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Payload.Common;
+using CommonClassLibrary;
 using Payload.Core.Command;
 using Payload.Core.Command.Demo;
 using PayloadNetFrameworkTest.UnitTestClass.Interface;

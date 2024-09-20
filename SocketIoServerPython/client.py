@@ -15,7 +15,7 @@ class Client:
 
 
     def info(self):
-        info = " ip: {uip} | id: {uid} | sids: {sid}".format(uip=self.ip, uid=self.userId, sid=' , '.join(self.sessionIdList))
+        info = " ip:{uip}|uid:{uid}|sids:{sid}".format(uip=self.ip, uid=self.userId, sid=', '.join(self.sessionIdList))
         return info
     
     def jsonInfo(self):

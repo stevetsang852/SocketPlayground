@@ -95,16 +95,9 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Common\BytesHelper.cs" />
-    <Compile Include="Common\CmdHelper.cs" />
-    <Compile Include="Common\DesktopUtility.cs" />
-    <Compile Include="Common\FileHelper.cs" />
-    <Compile Include="Common\ImageHelper.cs" />
-    <Compile Include="Common\TextHelper.cs" />
-    <Compile Include="Common\ZipHelper.cs" />
     <Compile Include="Core\Command\Cloner\Itself\CopyItselfCommand.cs" />
     <Compile Include="Core\Command\Cloner\Itself\CopyItselfFactory.cs" />
-    <Compile Include="Core\Command\CommandManager.cs" />
+    <Compile Include="CommandManager.cs" />
     <Compile Include="Core\Command\Console\ConsoleLogCommand.cs" />
     <Compile Include="Core\Command\Console\ConsoleLogFactory.cs" />
     <Compile Include="Core\Command\Demo\DemoCommand.cs" />
@@ -133,7 +126,6 @@
     <Compile Include="Core\Command\SocketClient\SocketIO\SocketIOClientFactory.cs" />
     <Compile Include="Core\Command\TaskPack.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineCommand.cs" />
-    <Compile Include="Common\Config.cs" />
     <Compile Include="Core\Command\WallPaper\WallpaperEngineFactory.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -171,6 +163,12 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Resources\u.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CommonClassLibrary\CommonClassLibrary.csproj">
+      <Project>{69987718-dcf8-4eae-9f1c-ed759b8f147c}</Project>
+      <Name>CommonClassLibrary</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="..\packages\System.Text.Json.6.0.2\build\System.Text.Json.targets" Condition="Exists('..\packages\System.Text.Json.6.0.2\build\System.Text.Json.targets')" />

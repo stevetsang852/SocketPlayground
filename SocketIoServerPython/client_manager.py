@@ -1,15 +1,15 @@
 from client import Client
 class ClientManager:
     def __init__(self):
-        self.client_list = {}
+        self.client_list = {} # :Map<ip:string=>client:object>
 
     def debug(self):
         print('ClientManager debug:')
-        for id in self.client_list:
-            print(id,'::', self.client_list[id].info())
+        for ip in self.client_list:
+            print(ip,'::', self.client_list[ip].info())
 
     def addClient(self, ip, sid):
-        print('addClient')
+        print('addClient={sid}'.format(sid=sid))
         if ip in self.client_list:
             _client = self.client_list[ip]
             print('found c::', _client.info())

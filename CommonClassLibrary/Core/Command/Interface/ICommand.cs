@@ -32,7 +32,8 @@ namespace Payload.Command.Interface
         }
         public virtual Task Execute()
         {
-            throw new NotImplementedException("Please override this method");
+            //throw new NotImplementedException("Please override this method");
+            return CurrentTask;
         }
         public virtual Task Undo()
         {

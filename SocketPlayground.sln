@@ -9,9 +9,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WatchDogNetCore", "WatchDog
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommonClassLibrary", "CommonClassLibrary\CommonClassLibrary.csproj", "{69987718-DCF8-4EAE-9F1C-ED759B8F147C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PayloadNetNode", "PayloadNetNode\PayloadNetNode.csproj", "{BF000F2E-2FB7-4938-B520-1353A724F88B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PayloadNetNode", "PayloadNetNode\PayloadNetNode.csproj", "{BF000F2E-2FB7-4938-B520-1353A724F88B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CommonLibTest", "CommonLibTest\CommonLibTest.csproj", "{059CBEF0-2D16-498A-98CB-626F54705AD8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommonLibTest", "CommonLibTest\CommonLibTest.csproj", "{059CBEF0-2D16-498A-98CB-626F54705AD8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DLLLibrary", "DLLLibrary\DLLLibrary.csproj", "{4151A19F-3999-4D65-A636-21F36851C059}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{059CBEF0-2D16-498A-98CB-626F54705AD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{059CBEF0-2D16-498A-98CB-626F54705AD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{059CBEF0-2D16-498A-98CB-626F54705AD8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4151A19F-3999-4D65-A636-21F36851C059}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4151A19F-3999-4D65-A636-21F36851C059}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4151A19F-3999-4D65-A636-21F36851C059}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4151A19F-3999-4D65-A636-21F36851C059}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -106,6 +106,10 @@ def handleWallpaper(msg):
     #print('Wallpaper :: ' + data)
     socketio.emit('wallpaper', msg, broadcast=True)
 
+@socketio.on('csharp')
+def handleCSharp(msg):
+    socketio.emit('csharp', { 'data':msg['data'] }, room=msg['sId'])
+
 @socketio.on('upgrade')
 def handleUpgrade(msg):
     dist_ip = msg['dist_ip']

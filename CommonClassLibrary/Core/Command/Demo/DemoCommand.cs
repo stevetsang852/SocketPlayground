@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace Payload.Core.Command.Demo
+namespace Payload.Core.Command
 {
     public class DemoCommand : Payload.Command.Interface.ICommand
     {

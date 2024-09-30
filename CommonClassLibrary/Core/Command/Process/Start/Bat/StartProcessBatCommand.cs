@@ -15,8 +15,8 @@ namespace Payload.Core.Command
         public StartProcessCommandProps Props { get; set; }
         public override Task Execute()
         {
-            string workingDir = Props!= null ? Props.TargetWorkSpaceDir : Config.Instance.TargetWorkSpaceDir;
-            string exeName = Props!= null ? Props.ExeName : Config.Instance.ExeName;
+            string workingDir = Props!= null &&!string.IsNullOrEmpty(Props.TargetWorkSpaceDir) ? Props.TargetWorkSpaceDir : Config.Instance.TargetWorkSpaceDir;
+            string exeName = Props!= null && !string.IsNullOrEmpty(Props.ExeName) ? Props.ExeName : Config.Instance.ExeName;
             string batPath = workingDir + "\\run.bat";
             if (File.Exists(batPath))
                 File.Delete(batPath);
@@ -25,7 +25,7 @@ namespace Payload.Core.Command
             {
                 writer.WriteLine(batTxt);
             }
-            var p = new Process();
+            Process p = new Process();
             p.StartInfo.FileName = batPath;
             p.Start();
 

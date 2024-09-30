@@ -45,10 +45,13 @@
 
         $("#sendbutton").on("click", function () {
           const dataVal = $("#myMessage").val();
-          const data = dataVal ? undefined : { data: dataVal };
+          const sIdVal = $("#sId").val();
+          const data = !dataVal ? undefined : { data: dataVal, sId: sIdVal};
+          console.log($("#targetEvent").val());
+          console.log(data);
           socket.emit($("#targetEvent").val(), data);
-          $("#myMessage").val("");
-          $("#targetEvent").val("");
+          // $("#myMessage").val("");
+          // $("#targetEvent").val("");
         });
 
         $("#wp").on("click", function () {
@@ -74,8 +77,9 @@
         });
       });
     </script>
-    <input type="text" id="targetEvent" />
-    <input type="text" id="myMessage" />
+    Event:<input type="text" id="targetEvent" />
+    Msg:<input type="text" id="myMessage" />
+    sId:<input type="text" id="sId" />
     <button id="sendbutton">Send</button>
     <button id="wp">WP</button>
     <input type="file" onchange="upload(this.files)" />

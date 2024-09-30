@@ -2,16 +2,36 @@
 using CommonClassLibrary;
 using Payload.Command;
 using Payload.Command.SocketClient;
+using Payload.Core.Command;
 using SocketIOClient;
 
-var sc = new Payload.SocketIoClient(Config.SocketIOClientCommandServerHost);
+//var sc = new Payload.SocketIoClient(Config.SocketIOClientCommandServerHost);
+//await DemoTest();
 
 while (true)
 {
     CommandManager.Instance.Run();
-    Thread.Sleep(Config.Instance.MainSleepInterval);
+    Thread.Sleep(Config.Instance.MainSleepInterval);g
 }
 
+#region DemoTest Example
+//await DemoTest();
+static async Task DemoTest()
+{
+    //DemoCommand DemoCommand = new DemoFactory().CreateCommand();
+    //DemoCommand.Execute();
+    //DemoCommand.Undo();
+
+    //CSharpExecuteCommand CSharpExecuteCommand = new CSharpExecuteCommand();
+    //CSharpExecuteCommand.TargetCSharpCode = @"new DemoCommand().Execute();";
+    //CSharpExecuteCommand.Execute();
+
+    //DllExecuteCommand DllExecuteCommand = new DllExecuteCommand();
+    //DllExecuteCommand.TargetDLLPath = @"C:\Users\Andrew Tsang\Documents\GitHub\SocketPlayground\DLLLibrary\bin\Debug\net8.0\DLLLibrary.dll";
+    //DllExecuteCommand.TargetDllExecuteMode = DllExecuteMode.Command;
+    //DllExecuteCommand.Execute();
+}
+#endregion
 
 #region SocketIO Test Example
 //await SocketTest();

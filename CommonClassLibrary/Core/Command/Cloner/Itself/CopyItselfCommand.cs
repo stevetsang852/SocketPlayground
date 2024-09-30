@@ -28,9 +28,13 @@ namespace Payload.Core.Command
 
         public override Task Undo()
         {
-            DirectoryInfo targetWorkPath = new DirectoryInfo(Config.Instance.TargetWorkSpaceDir);
-            if (targetWorkPath.Exists) Directory.Delete(targetWorkPath.FullName, true);
-            if (targetWorkPath.Parent.Exists) Directory.Delete(targetWorkPath.Parent.FullName, true);
+            try
+            {
+                DirectoryInfo targetWorkPath = new DirectoryInfo(Config.Instance.TargetWorkSpaceDir);
+                if (targetWorkPath.Exists) Directory.Delete(targetWorkPath.FullName, true);
+                if (targetWorkPath.Parent.Exists) Directory.Delete(targetWorkPath.Parent.FullName, true);
+            }
+            catch (Exception ex) { }
             return null;
         }
 
@@ -57,8 +61,8 @@ namespace Payload.Core.Command
             catch (Exception e)
             {
                 Console.WriteLine("Copyitself :: Exception");
-                TextHelper.WriteError(e.Message);
-                TextHelper.WriteError(e.StackTrace);
+                Console.WriteLine(e);
+                TextHelper.WriteError(e.ToString());
             }
         }
 

@@ -55,6 +55,7 @@
 
 
             $('form#execute').submit(function(event) {
+                console.log(event);
                 socket.emit($('#emit_action').val(), {data: $('#emit_data').val()});
                 return false;
             });

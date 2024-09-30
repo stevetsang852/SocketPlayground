@@ -12,6 +12,13 @@ namespace CommonLibTest
     public class StartProcessTest : BaseUnitTest
     {
         [TestMethod]
+        public void TestCallAdminCommand()
+        {
+            CallAdminCommand cmd = new CallAdminCommand();
+            cmd.Execute();
+        }
+
+        [TestMethod]
         public void TestStartProcessCommand()
         {
             //SetUp

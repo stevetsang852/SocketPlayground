@@ -51,9 +51,11 @@ namespace Payload.Command.Interface
                 {
                     await func();
                 }
-                catch
+                catch(Exception ex)
                 {
-
+#if DEBUG
+                    Console.WriteLine(ex.Message);
+#endif
                 }
             }, this.Token);
             return this.CurrentTask;

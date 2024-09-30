@@ -1,5 +1,4 @@
 ﻿using CommonClassLibrary;
-using DllLibrany;
 using Payload.Command;
 using Payload.Command.Interface;
 using Payload.Core.Command.Demo;
@@ -10,9 +9,9 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-namespace Payload.Core.Command
+namespace DLLLibrary.Core.Demo
 {
-    public class DllDemoFactory : Payload.Command.Interface.IFactory<DllDemoCommand>
+    public class DllDemoFactory : IFactory<DllDemoCommand>
     {
         public override TaskPack CreateTaskPack()
         {

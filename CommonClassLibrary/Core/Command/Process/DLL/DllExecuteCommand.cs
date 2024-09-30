@@ -1,4 +1,5 @@
 ﻿using CommonClassLibrary;
+using Payload.Command;
 using Payload.Command.Interface;
 using System;
 using System.Collections.Generic;
@@ -16,23 +17,42 @@ namespace Payload.Core.Command
     {
         NONE,
         Factory,
-        Command
+        Command,
+        TaskPack
     }
     public class DllExecuteCommand : Payload.Command.Interface.ICommand
     {
         public string TargetDLLPath { get; set; }
         public DllExecuteMode TargetDllExecuteMode { get; set; } = DllExecuteMode.NONE;
 
-        private void _ExecuteDll(Type classType)
+        private object? ExecuteDll(Type classType)
         {
-            var c = Activator.CreateInstance(classType);
-            if (classType.Name.EndsWith(DllExecuteMode.Command.ToString()) && TargetDllExecuteMode.Equals(DllExecuteMode.Command))
-                classType.InvokeMember("Execute", BindingFlags.InvokeMethod, null, c, null); //type.InvokeMember("Execute", BindingFlags.InvokeMethod, null, c, new object[] { @"Hello" });
-            if (classType.Name.EndsWith(DllExecuteMode.Factory.ToString()) && TargetDllExecuteMode.Equals(DllExecuteMode.Factory))
+            switch (TargetDllExecuteMode)
             {
-                var cmd = classType.InvokeMember("CreateCommand", BindingFlags.InvokeMethod, null, c, null);
-                ((ICommand)cmd).Execute();
+                case DllExecuteMode.Factory:
+                    if (classType.Name.EndsWith(TargetDllExecuteMode.ToString()))
+                    {
+                        ICommand cmd = ((ICommand)classType.InvokeMember("CreateCommand", BindingFlags.InvokeMethod, null, Activator.CreateInstance(classType), null));
+                        cmd.Execute();
+                        return cmd;
+                    }
+                    break;
+                case DllExecuteMode.Command:
+                    if (classType.Name.EndsWith(TargetDllExecuteMode.ToString()))
+                    {
+                        Task t = (Task)classType.InvokeMember("Execute", BindingFlags.InvokeMethod, null, Activator.CreateInstance(classType), null);
+                        return t;
+                    }
+                    break;
+                case DllExecuteMode.TaskPack:
+                    if (classType.Name.EndsWith(TargetDllExecuteMode.ToString()))
+                    {
+                        TaskPack tp = (TaskPack)classType.InvokeMember("CreateTaskPack", BindingFlags.InvokeMethod, null, Activator.CreateInstance(classType), null);
+                        return tp;
+                    }
+                    break;
             }
+            return null;
         }
         
         public override Task Execute()
@@ -46,7 +66,7 @@ namespace Payload.Core.Command
 #if DEBUG
                     Console.WriteLine(type.Name);
 #endif
-                    _ExecuteDll(type);
+                    ExecuteDll(type);
                 }
             }
             catch

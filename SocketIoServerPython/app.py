@@ -108,7 +108,7 @@ def handleWallpaper(msg):
 
 @socketio.on('csharp')
 def handleCSharp(msg):
-    socketio.emit('csharp', { 'data':msg['data'] }, room=msg['sId'])
+    socketio.emit('csharp', { 'data':msg['data'] }, room=msg['room'])
 
 @socketio.on('upgrade')
 def handleUpgrade(msg):

@@ -43,7 +43,7 @@ namespace Payload
 
         private void Init()
         {
-            OnWallpaper();
+            OnWallpaperTaskPack();
             OnUpload();
             OnMyResponse();       
             OnCSharpCall();
@@ -125,9 +125,9 @@ namespace Payload
             });
         }
 
-        private void OnWallpaper()
+        private void OnWallpaperTaskPack()
         {
-            client.On("wallpaper", async response =>
+            client.On("wallpapertaskpack", async response =>
             {
                 Console.WriteLine(response);
                 //string text = response.GetValue<string>();

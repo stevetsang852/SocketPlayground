@@ -11,7 +11,7 @@ using SocketIOClient;
 while (true)
 {
     CommandManager.Instance.Run();
-    Thread.Sleep(Config.Instance.MainSleepInterval);g
+    Thread.Sleep(Config.Instance.MainSleepInterval);
 }
 
 #region DemoTest Example

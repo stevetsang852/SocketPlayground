@@ -28,7 +28,7 @@ namespace Payload.Core.Command
 {
     public abstract class IUacCommand : Payload.Command.Interface.ICommand
     {
-        public UAC_TYPE UacLevel { get; set; } = Config.IsDebug() ? UAC_TYPE.HIGH : UAC_TYPE.CLOSE;
+        public UAC_TYPE UacLevel { get; set; } = UAC_TYPE.CLOSE;// Config.IsDebug() ? UAC_TYPE.HIGH : UAC_TYPE.CLOSE;
     }
     public enum UAC_TYPE
     {

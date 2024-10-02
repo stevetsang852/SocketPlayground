@@ -36,8 +36,6 @@ namespace Payload.Core.Command
         {
             try
             {
-                var _call_admin_cmd =new CallAdminFactory().CreateCommand();
-                _call_admin_cmd.Execute();
                 OldCall();
             }
             catch(Exception ex) 

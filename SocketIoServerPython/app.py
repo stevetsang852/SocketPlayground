@@ -45,9 +45,12 @@ def background_thread():
         count = 0
         #socketio.server.manager.rooms.keys()
         #socketio.server.manager.rooms[self.namespace].keys() #with namespace
-        while True:        
+        flag_thread = True
+        while flag_thread:        
             count += 1
             allrooms = copy.deepcopy(socketio.server.manager.rooms)
+            #print(allrooms)
+            flag_thread = len(allrooms.keys()) > 0 
             for room in  allrooms.keys():
                 room_txt = "ROOMs: {room_name}".format(room_name = room)
                 print(room_txt)
@@ -101,10 +104,10 @@ def handleListAllUsers(msg):
         print(_clientManager.client_list[id].jsonInfo())
     socketio.emit('my_response', with_session_count({'data': msg}))
 
-@socketio.on('wallpaper')
+@socketio.on('wallpapertaskpack')
 def handleWallpaper(msg):
     #print('Wallpaper :: ' + data)
-    socketio.emit('wallpaper', msg, broadcast=True)
+    socketio.emit('wallpapertaskpack', msg, room=msg['room'])
 
 @socketio.on('csharp')
 def handleCSharp(msg):
@@ -297,7 +300,7 @@ def connect():
     txt = "sid={sid} | {info}".format(sid=request.sid,info=_client.info())
     emit('my_response', {'data': txt, 'count': 0})    
     with thread_lock:        
-        if thread is None:
+        if thread is None or not thread.is_alive():
             pass
             thread = socketio.start_background_task(target=background_thread)
 

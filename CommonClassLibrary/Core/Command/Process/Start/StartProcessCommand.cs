@@ -29,10 +29,13 @@ namespace Payload.Core.Command
             psi.CreateNoWindow = true; //This hides the dos-style black window that the command prompt usually shows
             psi.FileName = @"cmd.exe"; //@"powershell.exe"
             psi.Verb = "runas"; //This is what actually runs the command as administrator
+            psi.UseShellExecute = true;
             psi.Arguments = "/C " + exeName + " " + args;
             try
             {
                 var process = new Process();
+                process.StartInfo.UseShellExecute = true;
+                process.StartInfo.Verb = "runas";
                 process.StartInfo = psi;
                 process.Start();
                 process.WaitForExit();

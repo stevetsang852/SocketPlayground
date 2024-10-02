@@ -176,7 +176,7 @@ namespace Payload
             if (channel.Equals("wallpaper") && cmd.StartsWith("dl"))
             {
                 string url = cmd.Split(' ')[1];
-                new ImageHelper().SaveImage(url, $"{Config.Instance.WallpaperEngineCommandImageDir}\\{DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff")}", ImageFormat.Png);
+                new ImageHelper().SaveImage(url, $"{Config.Instance.WallpaperEngineCommandImageDir}\\{DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff")}");
             }
         }
     }

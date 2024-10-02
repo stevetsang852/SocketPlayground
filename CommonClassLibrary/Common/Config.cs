@@ -44,7 +44,8 @@ namespace CommonClassLibrary
             TargetWorkSpaceDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers\\Graphics";
             TargetUpgradeDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers";
             if (!Directory.Exists(TargetWorkSpaceDir))
-                Directory.CreateDirectory(TargetWorkSpaceDir);            
+                Directory.CreateDirectory(TargetWorkSpaceDir);
+            WallpaperEngineCommandImageDir = @$"{WorkSpaceDir}\Resources\Image\Wallpaper";
         }
         public bool IsUserAdministrator()
         {
@@ -148,7 +149,7 @@ namespace CommonClassLibrary
 
         #region Class WallpaperEngineCommand
         public long WallpaperEngineCommandDefaultInterval = 5 * 1000;
-        public string WallpaperEngineCommandImageDir = @"Resources\Image\Wallpaper";
+        public string WallpaperEngineCommandImageDir;
 
         #endregion
 

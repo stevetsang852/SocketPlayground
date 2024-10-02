@@ -72,7 +72,7 @@ namespace Payload.Command.WallPaper
 
         public void ReflashImgList()
         {
-            DirectoryInfo imgDir = new DirectoryInfo($"{Config.Instance.WorkSpaceDir}\\{Config.Instance.WallpaperEngineCommandImageDir}");
+            DirectoryInfo imgDir = new DirectoryInfo(Config.Instance.WallpaperEngineCommandImageDir);
             imgList = imgDir.GetFiles();
         }
 

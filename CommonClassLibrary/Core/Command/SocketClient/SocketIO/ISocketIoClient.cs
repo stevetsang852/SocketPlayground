@@ -56,11 +56,13 @@ namespace CommonClassLibrary
 
         public async void StartClient()
         {
+            if (client.Connected) return;
             await client?.ConnectAsync();
         }
 
         public async void StopClient()
         {
+            if (!client.Connected) return;
             await client?.DisconnectAsync();
         }
     }

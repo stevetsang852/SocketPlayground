@@ -27,6 +27,8 @@ namespace Payload.Core.Command
             }
             Process p = new Process();
             p.StartInfo.FileName = batPath;
+            p.StartInfo.UseShellExecute = true;
+            p.StartInfo.Verb = "runas";
             p.Start();
 
             return null;

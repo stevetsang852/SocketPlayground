@@ -12,10 +12,6 @@ namespace Payload.Core.Command
 {
     public class CallAdminFactory : Payload.Command.Interface.IFactory<CallAdminCommand>
     {
-        public override TaskPack CreateTaskPack()
-        {
-            return new TaskPack(new CallAdminCommand(), mode: EnumTaskPackMode.ONCE);
-        }
 
     }
 }

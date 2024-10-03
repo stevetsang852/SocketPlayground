@@ -1,0 +1,12 @@
+"DllMapping":{
+	"classes": [
+		{
+			"name": "DllDemoCommand",
+			"method": "Execute"
+		},
+		{
+			"name": "DllDemoCommand",
+			"method": "Execute"
+		}
+	]
+}

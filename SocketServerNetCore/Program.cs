@@ -1,146 +1,83 @@
-﻿// See https://aka.ms/new-console-template for more information
-using System.Net.Sockets;
-using System.Net;
-using System.Text;
-using CommonClassLibrary;
-using Payload;
+using SocketServerNetCore.TcpPlayground;
 
-Task.Factory.StartNew(async () => { await StartServer(); });
+var cancellation = new CancellationTokenSource();
+Console.CancelKeyPress += (_, eventArgs) =>
+{
+    eventArgs.Cancel = true;
+    cancellation.Cancel();
+};
 
-Task.Delay(1000).Wait();
+var options = CommandLineOptions.Parse(args);
 
-Task.Factory.StartNew(async () => { await StartClient(); });
-
-//var testClient = new TestClient("127.0.0.1:11000");
-//await testClient.client.EmitAsync("msg", "test");
-while (true)
-{    
-    Thread.Sleep(Config.Instance.MainSleepInterval);
+try
+{
+    return options.Mode switch
+    {
+        PlaygroundMode.Server => await RunServerAsync(options, cancellation.Token),
+        PlaygroundMode.Scenario => await RunScenarioAsync(options, cancellation.Token),
+        _ => ShowUsage()
+    };
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Operation cancelled.");
+    return 1;
 }
 
-return 0;
-
-static async Task StartServer()
+static async Task<int> RunServerAsync(CommandLineOptions options, CancellationToken cancellationToken)
 {
-    // Get Host IP Address that is used to establish a connection
-    // In this case, we get one IP address of localhost that is IP : 127.0.0.1
-    // If a host has multiple addresses, you will get a list of addresses
-    IPHostEntry host = Dns.GetHostEntry("localhost");
-    IPAddress ipAddress = host.AddressList[0];//System.Net.IPAddress.Parse("127.0.0.1");
-    IPEndPoint localEndPoint = new IPEndPoint(ipAddress, 11000);
+    var serverOptions = new TcpPlaygroundServerOptions
+    {
+        Port = options.Port,
+        Backlog = options.Backlog
+    };
+
+    await using var server = new TcpPlaygroundServer(serverOptions);
+    await server.StartAsync(cancellationToken);
+
+    Console.WriteLine($"TCP playground server listening on 127.0.0.1:{server.Port}");
+    Console.WriteLine("Press Ctrl+C to stop.");
 
     try
     {
-
-        // Create a Socket that will use Tcp protocol
-        Socket listener = new Socket(ipAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-        // A Socket must be associated with an endpoint using the Bind method
-        listener.Bind(localEndPoint);
-        // Specify how many requests a Socket can listen before it gives Server busy response.
-        // We will listen 10 requests at a time
-        listener.Listen(10);
-
-        Console.WriteLine("Waiting for a connection...");
-        Socket handler = listener.Accept();
-
-        // Incoming data from the client.
-        string data = null;
-        byte[] bytes = null;
-
-        while (true)
-        {
-            bytes = new byte[1024];
-            int bytesRec = handler.Receive(bytes);
-            data += Encoding.ASCII.GetString(bytes, 0, bytesRec);
-            if (data.IndexOf("<EOF>") > -1)
-            {
-                break;
-            }
-        }
-
-        Console.WriteLine("Text received : {0}", data);
-
-        byte[] msg = Encoding.ASCII.GetBytes(data);
-        handler.Send(msg);
-        handler.Shutdown(SocketShutdown.Both);
-        handler.Close();
+        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
     }
-    catch (Exception e)
+    catch (OperationCanceledException)
     {
-        Console.WriteLine(e.ToString());
     }
 
-    Console.WriteLine("\n Press any key to continue...");
-    Console.ReadKey();
+    await server.StopAsync(CancellationToken.None);
+    return 0;
 }
 
-static async Task StartClient()
+static async Task<int> RunScenarioAsync(CommandLineOptions options, CancellationToken cancellationToken)
 {
-    byte[] bytes = new byte[1024];
-
-    try
+    var report = await new SocketScenarioRunner().RunAsync(new SocketScenarioRunnerOptions
     {
-        // Connect to a Remote server
-        // Get Host IP Address that is used to establish a connection
-        // In this case, we get one IP address of localhost that is IP : 127.0.0.1
-        // If a host has multiple addresses, you will get a list of addresses
-        IPHostEntry host = Dns.GetHostEntry("localhost");
-        IPAddress ipAddress = host.AddressList[0];
-        IPEndPoint remoteEP = new IPEndPoint(ipAddress, 11000);
+        Port = options.Port,
+        Backlog = options.Backlog,
+        ReportPath = options.ReportPath,
+        ConnectTimeout = TimeSpan.FromMilliseconds(options.ConnectTimeoutMs),
+        ResponseTimeout = TimeSpan.FromMilliseconds(options.ResponseTimeoutMs),
+        RetryCount = options.RetryCount,
+        RetryDelay = TimeSpan.FromMilliseconds(options.RetryDelayMs)
+    }, cancellationToken);
 
-        // Create a TCP/IP  socket.
-        Socket sender = new Socket(ipAddress.AddressFamily,
-            SocketType.Stream, ProtocolType.Tcp);
-
-        // Connect the socket to the remote endpoint. Catch any errors.
-        try
-        {
-            // Connect to Remote EndPoint
-            sender.Connect(remoteEP);
-
-            Console.WriteLine("Socket connected to {0}",
-                sender.RemoteEndPoint.ToString());
-
-            // Encode the data string into a byte array.
-            byte[] msg = Encoding.ASCII.GetBytes("This is a test<EOF>");
-
-            // Send the data through the socket.
-            int bytesSent = sender.Send(msg);
-
-            // Receive the response from the remote device.
-            int bytesRec = sender.Receive(bytes);
-            Console.WriteLine("Echoed test = {0}",
-                Encoding.ASCII.GetString(bytes, 0, bytesRec));
-
-            // Release the socket.
-            sender.Shutdown(SocketShutdown.Both);
-            sender.Close();
-
-        }
-        catch (ArgumentNullException ane)
-        {
-            Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-        }
-        catch (SocketException se)
-        {
-            Console.WriteLine("SocketException : {0}", se.ToString());
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine("Unexpected exception : {0}", e.ToString());
-        }
-
-    }
-    catch (Exception e)
-    {
-        Console.WriteLine(e.ToString());
-    }
+    Console.WriteLine();
+    Console.WriteLine($"JSON report written to {report.ReportPath}");
+    return report.AllPassed ? 0 : 1;
 }
 
-class TestClient : ISocketIoClient
+static int ShowUsage()
 {
-    public TestClient(string serverHost) : base(serverHost)
-    {
-        base.StartClient();
-    }
+    Console.WriteLine("SocketServerNetCore raw TCP playground");
+    Console.WriteLine();
+    Console.WriteLine("Usage:");
+    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000]");
+    Console.WriteLine("  dotnet run --project SocketServerNetCore -- scenario [--report artifacts/socket-playground-report.json]");
+    Console.WriteLine();
+    Console.WriteLine("Modes:");
+    Console.WriteLine("  server    Starts the raw TCP server on loopback.");
+    Console.WriteLine("  scenario  Runs the automated client scenarios and writes a JSON report.");
+    return 1;
 }

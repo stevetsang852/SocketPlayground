@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CommonClassLibrary\CommonClassLibrary.csproj" />
     <ProjectReference Include="..\PayloadNetNode\PayloadNetNode.csproj" />
+    <ProjectReference Include="..\SocketServerNetCore\SocketServerNetCore.csproj" />
   </ItemGroup>
 
   <ItemGroup>

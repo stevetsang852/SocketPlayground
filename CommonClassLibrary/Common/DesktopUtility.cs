@@ -1,4 +1,3 @@
-﻿using IWshRuntimeLibrary;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,15 +14,20 @@ namespace CommonClassLibrary
         {
             if (!Config.Instance.WorkSpaceDir.StartsWith(Config.Instance.TargetWorkSpaceDir))
                 return;
-            WshShell wshShell = new WshShell();
+            if (!OperatingSystem.IsWindows())
+                return;
 
-            IWshRuntimeLibrary.IWshShortcut shortcut;
+            Type? shellType = Type.GetTypeFromProgID("WScript.Shell", throwOnError: false);
+            if (shellType == null)
+                throw new PlatformNotSupportedException("WScript.Shell is not available on this platform.");
+            dynamic wshShell = Activator.CreateInstance(shellType)
+                ?? throw new InvalidOperationException("Unable to create WScript.Shell.");
 
             string shortcutPath = targetPath + ".lnk";
             if(System.IO.File.Exists(shortcutPath))
                 System.IO.File.Delete(shortcutPath);
             // Create the shortcut
-            shortcut = (IWshRuntimeLibrary.IWshShortcut)wshShell.CreateShortcut(targetPath+ ".lnk");
+            dynamic shortcut = wshShell.CreateShortcut(targetPath + ".lnk");
 
             shortcut.TargetPath = Config.Instance.ExeFullName;
             shortcut.WorkingDirectory = Config.Instance.WorkSpaceDir;

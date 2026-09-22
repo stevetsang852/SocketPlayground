@@ -5,7 +5,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-using NetFwTypeLib;
 
 namespace CommonClassLibrary.Common
 {
@@ -40,7 +39,7 @@ namespace CommonClassLibrary.Common
         /// Interface to the firewall manager COM object
         /// 
 
-        private INetFwMgr fwMgr = null;
+        private dynamic? fwMgr = null;
         #endregion
         #region Properties
         /// 
@@ -81,7 +80,7 @@ namespace CommonClassLibrary.Common
             {
                 try
                 {
-                    fwMgr = (INetFwMgr)Activator.CreateInstance(fwMgrType);
+                    fwMgr = Activator.CreateInstance(fwMgrType);
                 }
                 // In all other circumnstances, fwMgr is null.
                 catch (ArgumentException) { }
@@ -216,13 +215,13 @@ namespace CommonClassLibrary.Common
                 Type authAppType = Type.GetTypeFromProgID("HNetCfg.FwAuthorizedApplication", false);
 
                 // Assume failed.
-                INetFwAuthorizedApplication appInfo = null;
+                dynamic? appInfo = null;
 
                 if (authAppType != null)
                 {
                     try
                     {
-                        appInfo = (INetFwAuthorizedApplication)Activator.CreateInstance(authAppType);
+                        appInfo = Activator.CreateInstance(authAppType);
                     }
                     // In all other circumnstances, appInfo is null.
                     catch (ArgumentException) { }
@@ -379,8 +378,8 @@ namespace CommonClassLibrary.Common
 
             ArrayList list = new ArrayList();
             //  Collect the paths of all authorized applications
-            foreach (INetFwAuthorizedApplication app in fwMgr.LocalPolicy.CurrentProfile.AuthorizedApplications)
-                list.Add(app.ProcessImageFileName);
+            foreach (var app in (IEnumerable)fwMgr.LocalPolicy.CurrentProfile.AuthorizedApplications)
+                list.Add(((dynamic)app).ProcessImageFileName);
 
             return list;
         }

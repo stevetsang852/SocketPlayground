@@ -17,6 +17,7 @@ Phase C is the best first milestone because it is deterministic on loopback, wor
 - `SocketServerNetCore` is a **raw TCP** playground.
 - `SocketIoNodejs` and `SocketIoServerPython` are **Socket.IO** samples.
 - They are intentionally separate and are **not protocol-compatible**.
+- Because the Python sample is Socket.IO-only, this repository does **not** claim raw TCP ↔ Python Socket.IO wire compatibility and does not add misleading cross-language raw TCP tests.
 
 ## Raw TCP architecture
 
@@ -80,11 +81,14 @@ Envelope fields:
   - legacy MSTest project, with platform/network-dependent tests now skipped automatically when CI cannot support them
 - `SocketServerNetCore.Tests`
   - dedicated raw TCP/TLS MSTest project added to `SocketPlayground.sln`
+- `SocketIoServerPython/tests`
+  - deterministic `pytest` coverage using Flask-SocketIO's in-process test client for the Python Socket.IO sample
 
 ### TLS integration coverage
 
 `SocketServerNetCore.Tests` covers:
 
+- protocol metadata/defaulting and newline framing
 - successful TLS handshake
 - encrypted echo round trip
 - bidirectional broadcast/message flow
@@ -93,6 +97,7 @@ Envelope fields:
 - malformed message handling with structured errors
 - reconnect behavior
 - timeout and cancellation behavior
+- retry behavior when a loopback server starts after an initial connect failure
 
 The scenario runner also emits concise terminal diagnostics plus a JSON report in `artifacts/socket-playground-report.json` by default.
 
@@ -107,8 +112,10 @@ The scenario runner also emits concise terminal diagnostics plus a JSON report i
 From the repository root:
 
 ```bash
-dotnet build SocketPlayground.sln
-dotnet test SocketPlayground.sln
+dotnet build SocketPlayground.sln --configuration Release
+dotnet test SocketPlayground.sln --configuration Release
+python -m pip install -r SocketIoServerPython/requirements.txt pytest
+python -m pytest SocketIoServerPython/tests -q
 ```
 
 Run the raw TCP server:
@@ -144,6 +151,8 @@ It performs:
 1. `dotnet restore SocketPlayground.sln`
 2. `dotnet build SocketPlayground.sln --configuration Release`
 3. `dotnet test SocketPlayground.sln --configuration Release`
+4. `python -m pip install -r SocketIoServerPython/requirements.txt pytest`
+5. `python -m pytest SocketIoServerPython/tests -q`
 
 ### CI limitations
 

@@ -15,6 +15,7 @@ namespace CommonLibTest.UnitTestClass
         [TestMethod]
         public void TestDllExecuteCommand()
         {
+            TestEnvironmentRequirements.RequireWindows();
             //SetUp
             base.WorkingPathSetUp();
 
@@ -35,6 +36,7 @@ namespace CommonLibTest.UnitTestClass
         [TestMethod]
         public void TestCSharpExecuteCommand()
         {
+            TestEnvironmentRequirements.RequireWindows();
             //SetUp
             base.WorkingPathSetUp();
 

@@ -15,6 +15,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CommonLibTest", "CommonLibT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DLLLibrary", "DLLLibrary\DLLLibrary.csproj", "{4151A19F-3999-4D65-A636-21F36851C059}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketServerNetCore.Tests", "SocketServerNetCore.Tests\SocketServerNetCore.Tests.csproj", "{9FE674A9-B378-40AF-B956-AAD044D07466}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{4151A19F-3999-4D65-A636-21F36851C059}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4151A19F-3999-4D65-A636-21F36851C059}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4151A19F-3999-4D65-A636-21F36851C059}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9FE674A9-B378-40AF-B956-AAD044D07466}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9FE674A9-B378-40AF-B956-AAD044D07466}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9FE674A9-B378-40AF-B956-AAD044D07466}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9FE674A9-B378-40AF-B956-AAD044D07466}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

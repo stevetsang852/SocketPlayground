@@ -16,6 +16,7 @@ namespace CommonLibTest
         [TestMethod]
         public void TestRegistryKeyCommand()
         {
+            TestEnvironmentRequirements.RequireWindows();
             //SetUp
             base.WorkingPathSetUp();
             //Arrange
@@ -31,6 +32,7 @@ namespace CommonLibTest
         [TestMethod]
         public void TestRegistryKeyBatCommand()
         {
+            TestEnvironmentRequirements.RequireWindows();
             //SetUp
             base.WorkingPathSetUp();
             //Arrange

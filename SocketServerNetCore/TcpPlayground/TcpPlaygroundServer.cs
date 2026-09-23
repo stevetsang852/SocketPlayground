@@ -1,6 +1,9 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 
 namespace SocketServerNetCore.TcpPlayground;
 
@@ -114,7 +117,7 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
 
     private async Task HandleClientAsync(ServerClientConnection connection, CancellationToken cancellationToken)
     {
-        using var stream = connection.Client.GetStream();
+        using var stream = await OpenStreamAsync(connection.Client, cancellationToken);
         using var reader = JsonLineSocketProtocol.CreateReader(stream);
         using var writer = JsonLineSocketProtocol.CreateWriter(stream);
         connection.Writer = writer;
@@ -147,11 +150,39 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
                 await HandleMessageAsync(connection, envelope, cancellationToken);
             }
         }
+        catch (AuthenticationException)
+        {
+        }
+        catch (IOException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (SocketException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
         finally
         {
             _connections.TryRemove(connection.ConnectionId, out _);
             connection.Dispose();
         }
+    }
+
+    private async Task<Stream> OpenStreamAsync(TcpClient client, CancellationToken cancellationToken)
+    {
+        var stream = client.GetStream();
+        if (_options.ServerCertificate is null)
+        {
+            return stream;
+        }
+
+        var sslStream = new SslStream(stream, leaveInnerStreamOpen: false);
+        await sslStream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+        {
+            ServerCertificate = _options.ServerCertificate,
+            ClientCertificateRequired = false,
+            EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+            CertificateRevocationCheckMode = X509RevocationMode.NoCheck
+        }, cancellationToken);
+        return sslStream;
     }
 
     private async Task HandleMessageAsync(ServerClientConnection connection, SocketEnvelope envelope, CancellationToken cancellationToken)
@@ -229,6 +260,9 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         {
         }
         catch (SocketException)
+        {
+        }
+        catch (AuthenticationException)
         {
         }
     }

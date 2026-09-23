@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.Channels;
 
 namespace SocketServerNetCore.TcpPlayground;
@@ -14,6 +17,7 @@ public sealed class TcpTestClient : IAsyncDisposable
     private TcpClient? _client;
     private StreamReader? _reader;
     private StreamWriter? _writer;
+    private Stream? _stream;
     private CancellationTokenSource? _receiveCts;
     private Task? _receiveLoop;
 
@@ -23,6 +27,8 @@ public sealed class TcpTestClient : IAsyncDisposable
     }
 
     public string ClientId => _options.ClientId;
+    public bool IsTlsAuthenticated => _stream is SslStream sslStream && sslStream.IsAuthenticated;
+    public bool IsEncryptedTransport => _stream is SslStream sslStream && sslStream.IsEncrypted;
     public List<TcpTranscriptEvent> Transcript { get; } = new();
 
     public IReadOnlyList<TcpTranscriptEvent> SnapshotTranscript()
@@ -41,12 +47,16 @@ public sealed class TcpTestClient : IAsyncDisposable
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             timeoutCts.CancelAfter(_options.ConnectTimeout);
             await _client.ConnectAsync(_options.Host, _options.Port, timeoutCts.Token);
-            var stream = _client.GetStream();
-            _reader = JsonLineSocketProtocol.CreateReader(stream);
-            _writer = JsonLineSocketProtocol.CreateWriter(stream);
+            _stream = await OpenStreamAsync(_client, timeoutCts.Token);
+            _reader = JsonLineSocketProtocol.CreateReader(_stream);
+            _writer = JsonLineSocketProtocol.CreateWriter(_stream);
             _receiveCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             _receiveLoop = ReceiveLoopAsync(_receiveCts.Token);
             AddTranscript("client", "connect", $"Connected to {_options.Host}:{_options.Port}");
+            if (IsTlsAuthenticated)
+            {
+                AddTranscript("client", "tls.handshake", $"TLS established for {_options.TlsTargetHost}");
+            }
 
             var welcome = await SendRequestAsync("hello", new { name = ClientId }, envelope => envelope.Type == "welcome", token);
             AddTranscript("server", welcome.Type, "Handshake complete");
@@ -79,12 +89,14 @@ public sealed class TcpTestClient : IAsyncDisposable
 
         _reader?.Dispose();
         _writer?.Dispose();
+        _stream?.Dispose();
         _client?.Dispose();
         _receiveCts?.Dispose();
         _receiveCts = null;
         _receiveLoop = null;
         _reader = null;
         _writer = null;
+        _stream = null;
         _client = null;
         AddTranscript("client", "disconnect", "Disconnected");
     }
@@ -195,7 +207,7 @@ public sealed class TcpTestClient : IAsyncDisposable
                 await action(cancellationToken);
                 return;
             }
-            catch (Exception exception) when (exception is SocketException or TimeoutException or IOException)
+            catch (Exception exception) when (exception is SocketException or TimeoutException or IOException or AuthenticationException)
             {
                 lastException = exception;
                 AddTranscript("client", "retry", $"Attempt {attempts} failed: {exception.Message}");
@@ -229,5 +241,35 @@ public sealed class TcpTestClient : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await DisconnectAsync();
+    }
+
+    private async Task<Stream> OpenStreamAsync(TcpClient client, CancellationToken cancellationToken)
+    {
+        var stream = client.GetStream();
+        if (!_options.UseTls)
+        {
+            return stream;
+        }
+
+        var sslStream = new SslStream(stream, leaveInnerStreamOpen: false, ValidateServerCertificate);
+        await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
+        {
+            TargetHost = _options.TlsTargetHost,
+            EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+            CertificateRevocationCheckMode = X509RevocationMode.NoCheck
+        }, cancellationToken);
+        return sslStream;
+    }
+
+    private bool ValidateServerCertificate(object _, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
+    {
+        var serverCertificate = certificate is null ? null : new X509Certificate2(certificate);
+        if (_options.RemoteCertificateValidationCallback is not null)
+        {
+            return _options.RemoteCertificateValidationCallback(serverCertificate, chain, sslPolicyErrors);
+        }
+
+        return sslPolicyErrors == SslPolicyErrors.None
+            || (_options.AllowUntrustedCertificates && serverCertificate is not null);
     }
 }

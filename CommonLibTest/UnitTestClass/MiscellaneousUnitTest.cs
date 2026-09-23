@@ -14,6 +14,7 @@ namespace CommonLibTest.UnitTestClass
         [TestMethod]
         public void TestImageHelper()
         {
+            TestEnvironmentRequirements.RequireExternalNetworkOptIn();
             base.WorkingPathSetUp();
             string url = "https://imgs.orientalsunday.hk/wp-content/uploads/2024/05/1cead865-c538-4097-9c7b-7648a8e076fc_85437503665829f4a0237.jpg";
             string savedPath = $"{Config.Instance.WallpaperEngineCommandImageDir}\\{DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff")}";

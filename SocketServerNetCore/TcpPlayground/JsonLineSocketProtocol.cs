@@ -29,6 +29,15 @@ public static class JsonLineSocketProtocol
                 envelope.RequestId = Guid.NewGuid().ToString("N");
             }
 
+            envelope.ProtocolVersion = string.IsNullOrWhiteSpace(envelope.ProtocolVersion)
+                ? CommandProtocol.ProtocolVersion
+                : envelope.ProtocolVersion;
+            envelope.DeviceId = string.IsNullOrWhiteSpace(envelope.DeviceId)
+                ? envelope.ClientId
+                : envelope.DeviceId;
+            envelope.ClientId = string.IsNullOrWhiteSpace(envelope.ClientId)
+                ? envelope.DeviceId
+                : envelope.ClientId;
             envelope.TimestampUtc = envelope.TimestampUtc == default ? DateTimeOffset.UtcNow : envelope.TimestampUtc;
             error = null;
             return true;

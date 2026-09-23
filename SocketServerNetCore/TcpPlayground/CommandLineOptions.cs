@@ -6,6 +6,7 @@ public enum PlaygroundMode
 {
     Scenario,
     Server,
+    IssueToken,
     Help
 }
 
@@ -19,10 +20,17 @@ public sealed class CommandLineOptions
     public int ResponseTimeoutMs { get; init; } = 2000;
     public int RetryCount { get; init; } = 1;
     public int RetryDelayMs { get; init; } = 250;
-    public bool TlsEnabled { get; init; }
+    public bool TlsEnabled { get; init; } = true;
     public bool AllowUntrustedCertificates { get; init; }
     public string? TlsCertPath { get; init; }
     public string? TlsCertPassword { get; init; }
+    public string AuthenticationSecret { get; init; } = string.Empty;
+    public int AuthenticationTimeoutMs { get; init; } = 5000;
+    public int CommandTimeoutMs { get; init; } = 2000;
+    public string DuplicatePolicy { get; init; } = "reject-new";
+    public string DeviceId { get; init; } = "sample-device";
+    public string Role { get; init; } = DeviceRoles.Client;
+    public int TokenLifetimeMinutes { get; init; } = 10;
 
     public static CommandLineOptions Parse(string[] args)
     {
@@ -35,6 +43,7 @@ public sealed class CommandLineOptions
         {
             "server" => PlaygroundMode.Server,
             "scenario" => PlaygroundMode.Scenario,
+            "issue-token" => PlaygroundMode.IssueToken,
             "help" or "--help" or "-h" => PlaygroundMode.Help,
             _ => PlaygroundMode.Help
         };
@@ -63,10 +72,21 @@ public sealed class CommandLineOptions
             ResponseTimeoutMs = GetInt(values, "response-timeout-ms", 2000),
             RetryCount = GetInt(values, "retry-count", 1),
             RetryDelayMs = GetInt(values, "retry-delay-ms", 250),
-            TlsEnabled = GetBool(values, "tls", false),
+            TlsEnabled = GetBool(values, "tls", true),
             AllowUntrustedCertificates = GetBool(values, "allow-untrusted", false),
             TlsCertPath = values.TryGetValue("tls-cert-path", out var certPath) ? certPath : null,
-            TlsCertPassword = values.TryGetValue("tls-cert-password", out var certPassword) ? certPassword : null
+            TlsCertPassword = values.TryGetValue("tls-cert-password", out var certPassword) ? certPassword : null,
+            AuthenticationSecret = values.TryGetValue("auth-secret", out var authSecret)
+                ? authSecret
+                : Environment.GetEnvironmentVariable("SOCKET_PLAYGROUND_AUTH_SECRET") ?? string.Empty,
+            AuthenticationTimeoutMs = GetInt(values, "auth-timeout-ms", 5000),
+            CommandTimeoutMs = GetInt(values, "command-timeout-ms", 2000),
+            DuplicatePolicy = values.TryGetValue("duplicate-policy", out var duplicatePolicy)
+                ? duplicatePolicy
+                : "reject-new",
+            DeviceId = values.TryGetValue("device-id", out var deviceId) ? deviceId : "sample-device",
+            Role = values.TryGetValue("role", out var role) ? role : DeviceRoles.Client,
+            TokenLifetimeMinutes = GetInt(values, "token-lifetime-minutes", 10)
         };
     }
 

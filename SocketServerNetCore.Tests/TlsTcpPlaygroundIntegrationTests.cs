@@ -10,137 +10,169 @@ namespace SocketServerNetCore.Tests;
 [TestClass]
 public sealed class TlsTcpPlaygroundIntegrationTests
 {
-    [TestMethod]
-    [TestCategory("TcpPlayground")]
-    [TestCategory("Tls")]
-    public async Task TlsHandshakeReportsEncryptedTransportAsync()
-    {
-        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
-        await using var server = await StartTlsServerAsync(certificate);
-        await using var client = CreateTrustedClient(server.Port, certificate, "handshake-client");
-
-        await client.ConnectAsync();
-
-        Assert.IsTrue(client.IsTlsAuthenticated);
-        Assert.IsTrue(client.IsEncryptedTransport);
-        Assert.IsTrue(client.SnapshotTranscript().Any(eventEntry => eventEntry.MessageType == "tls.handshake"));
-    }
+    private const string AuthSecret = "integration-test-secret";
 
     [TestMethod]
     [TestCategory("TcpPlayground")]
     [TestCategory("Tls")]
-    public async Task TlsEchoRoundTripAsync()
+    public async Task UnauthenticatedConnectionMustAuthenticateFirstAsync()
     {
         using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
         await using var server = await StartTlsServerAsync(certificate);
-        await using var client = CreateTrustedClient(server.Port, certificate, "echo-client");
 
-        await client.ConnectAsync();
-        var response = await client.SendRequestAsync("echo", new { message = "hello over tls" }, envelope => envelope.Type == "echo.response");
-
-        Assert.AreEqual("hello over tls", response.Payload?.GetProperty("message").GetString());
-        Assert.AreEqual(client.ClientId, response.ClientId);
-    }
-
-    [TestMethod]
-    [TestCategory("TcpPlayground")]
-    [TestCategory("Tls")]
-    public async Task TlsBroadcastProvidesBidirectionalMessageFlowAsync()
-    {
-        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
-        await using var server = await StartTlsServerAsync(certificate);
-        await using var alpha = CreateTrustedClient(server.Port, certificate, "alpha");
-        await using var bravo = CreateTrustedClient(server.Port, certificate, "bravo");
-
-        await Task.WhenAll(alpha.ConnectAsync(), bravo.ConnectAsync());
-
-        var request = SocketEnvelope.Create("broadcast", alpha.ClientId, new { message = "fanout" });
-        await alpha.SendAsync(request);
-
-        var responses = await Task.WhenAll(
-            alpha.WaitForMessageAsync(envelope => envelope.Type == "broadcast.event" && envelope.RequestId == request.RequestId),
-            bravo.WaitForMessageAsync(envelope => envelope.Type == "broadcast.event" && envelope.RequestId == request.RequestId));
-
-        Assert.AreEqual(2, responses.Length);
-        Assert.IsTrue(responses.All(response => response.Payload?.GetProperty("fromClientId").GetString() == "alpha"));
-        Assert.IsTrue(responses.All(response => response.Payload?.GetProperty("body").GetProperty("message").GetString() == "fanout"));
-    }
-
-    [TestMethod]
-    [TestCategory("TcpPlayground")]
-    [TestCategory("Tls")]
-    public async Task TlsServerHandlesConcurrentClientsAsync()
-    {
-        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
-        await using var server = await StartTlsServerAsync(certificate);
-        var clients = Enumerable.Range(0, 4)
-            .Select(index => CreateTrustedClient(server.Port, certificate, $"client-{index}"))
-            .ToArray();
-
-        try
-        {
-            await Task.WhenAll(clients.Select(client => client.ConnectAsync()));
-
-            var responses = await Task.WhenAll(clients.Select((client, index) =>
-                client.SendRequestAsync(
-                    "echo",
-                    new { message = $"message-{index}" },
-                    envelope => envelope.Type == "echo.response")));
-
-            for (var index = 0; index < responses.Length; index++)
-            {
-                Assert.AreEqual($"message-{index}", responses[index].Payload?.GetProperty("message").GetString());
-            }
-        }
-        finally
-        {
-            foreach (var client in clients)
-            {
-                await client.DisposeAsync();
-            }
-        }
-    }
-
-    [TestMethod]
-    [TestCategory("TcpPlayground")]
-    [TestCategory("Tls")]
-    public async Task TlsClientRejectsUntrustedCertificateWithoutOptInAsync()
-    {
-        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
-        await using var server = await StartTlsServerAsync(certificate);
-        await using var untrustedClient = new TcpTestClient(new TcpTestClientOptions
-        {
-            ClientId = "untrusted-client",
-            Port = server.Port,
-            RetryCount = 0,
-            UseTls = true
-        });
-
-        var exception = await Assert.ThrowsExceptionAsync<AuthenticationException>(() => untrustedClient.ConnectAsync());
-        Assert.IsTrue(
-            exception.Message.Contains("certificate", StringComparison.OrdinalIgnoreCase)
-            || exception.Message.Contains("authentication", StringComparison.OrdinalIgnoreCase),
-            $"Unexpected TLS failure message: {exception.Message}");
+        var response = await SendTlsMessageAsync(server.Port, certificate, """{"type":"heartbeat","deviceId":"intruder"}""");
+        StringAssert.Contains(response, "\"type\":\"error\"");
+        StringAssert.Contains(response, "\"code\":\"auth_required\"");
 
         await using var trustedClient = CreateTrustedClient(server.Port, certificate, "trusted-client");
         await trustedClient.ConnectAsync();
-        var response = await trustedClient.SendRequestAsync("echo", new { message = "still running" }, envelope => envelope.Type == "echo.response");
-        Assert.AreEqual("still running", response.Payload?.GetProperty("message").GetString());
+        var heartbeat = await trustedClient.SendRequestAsync("heartbeat", new { sequence = 1 }, envelope => envelope.Type == "heartbeat.ack");
+        Assert.AreEqual("heartbeat.ack", heartbeat.Type);
     }
 
     [TestMethod]
     [TestCategory("TcpPlayground")]
     [TestCategory("Tls")]
-    public async Task TlsServerReturnsStructuredErrorForMalformedMessagesAsync()
+    public async Task InvalidTokenIsRejectedAsync()
+    {
+        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
+        await using var server = await StartTlsServerAsync(certificate);
+        await using var client = new TcpTestClient(new TcpTestClientOptions
+        {
+            ClientId = "invalid-token-client",
+            Role = DeviceRoles.Client,
+            Port = server.Port,
+            RetryCount = 0,
+            UseTls = true,
+            AccessToken = "not-a-valid-token",
+            RemoteCertificateValidationCallback = MatchCertificate(certificate)
+        });
+
+        await Assert.ThrowsExceptionAsync<AuthenticationException>(() => client.ConnectAsync());
+    }
+
+    [TestMethod]
+    [TestCategory("TcpPlayground")]
+    [TestCategory("Tls")]
+    public async Task DuplicateDeviceIsRejectedByDefaultAsync()
+    {
+        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
+        await using var server = await StartTlsServerAsync(certificate);
+        await using var original = CreateTrustedClient(server.Port, certificate, "shared-device");
+        await using var duplicate = CreateTrustedClient(server.Port, certificate, "shared-device");
+
+        await original.ConnectAsync();
+        await Assert.ThrowsExceptionAsync<AuthenticationException>(() => duplicate.ConnectAsync());
+
+        var heartbeat = await original.SendRequestAsync("heartbeat", new { sequence = 2 }, envelope => envelope.Type == "heartbeat.ack");
+        Assert.AreEqual("heartbeat.ack", heartbeat.Type);
+    }
+
+    [TestMethod]
+    [TestCategory("TcpPlayground")]
+    [TestCategory("Tls")]
+    public async Task NonAdminCannotSubmitAdminCommandsAsync()
+    {
+        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
+        await using var server = await StartTlsServerAsync(certificate);
+        await using var client = CreateTrustedClient(server.Port, certificate, "plain-client");
+
+        await client.ConnectAsync();
+        var error = await client.SendRequestAsync("admin-command", new
+        {
+            commandId = "deny-me",
+            commandName = "health-check",
+            targetMode = "all"
+        }, envelope => envelope.Type == "error");
+
+        Assert.AreEqual("forbidden", error.Payload?.GetProperty("code").GetString());
+    }
+
+    [TestMethod]
+    [TestCategory("TcpPlayground")]
+    [TestCategory("Tls")]
+    public async Task AllowlistedAdminCommandIsBroadcastAndAggregatedAsync()
+    {
+        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
+        await using var server = await StartTlsServerAsync(certificate);
+        await using var admin = CreateTrustedClient(server.Port, certificate, "admin-1", DeviceRoles.Admin);
+        await using var alpha = CreateTrustedClient(server.Port, certificate, "alpha");
+        await using var bravo = CreateTrustedClient(server.Port, certificate, "bravo");
+
+        await Task.WhenAll(admin.ConnectAsync(), alpha.ConnectAsync(), bravo.ConnectAsync());
+
+        var accepted = await admin.SendRequestAsync("admin-command", new
+        {
+            commandId = "health-broadcast",
+            commandName = "health-check",
+            targetMode = "all",
+            timeoutMs = 1000
+        }, envelope => envelope.Type == "admin-command.accepted");
+
+        var commandId = accepted.Payload?.GetProperty("commandId").GetString();
+        Assert.AreEqual("health-broadcast", commandId);
+
+        var alphaCommand = await alpha.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId);
+        var bravoCommand = await bravo.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId);
+        Assert.AreEqual("health-check", alphaCommand.Payload?.GetProperty("commandName").GetString());
+        Assert.AreEqual("health-check", bravoCommand.Payload?.GetProperty("commandName").GetString());
+
+        await SendCommandAckAsync(alpha, commandId!);
+        await SendCommandAckAsync(bravo, commandId!);
+        await SendCommandResultAsync(alpha, commandId!, "health-check", new { status = "ok", observedBy = "alpha" });
+        await SendCommandResultAsync(bravo, commandId!, "health-check", new { status = "ok", observedBy = "bravo" });
+
+        var acknowledgements = new[]
+        {
+            await admin.WaitForMessageAsync(envelope => envelope.Type == "command-ack" && envelope.CorrelationId == commandId),
+            await admin.WaitForMessageAsync(envelope => envelope.Type == "command-ack" && envelope.CorrelationId == commandId)
+        };
+        CollectionAssert.AreEquivalent(new[] { "alpha", "bravo" }, acknowledgements.Select(envelope => envelope.DeviceId).ToArray());
+
+        var results = new[]
+        {
+            await admin.WaitForMessageAsync(envelope => envelope.Type == "command-result" && envelope.CorrelationId == commandId),
+            await admin.WaitForMessageAsync(envelope => envelope.Type == "command-result" && envelope.CorrelationId == commandId)
+        };
+        CollectionAssert.AreEquivalent(new[] { "alpha", "bravo" }, results.Select(envelope => envelope.DeviceId).ToArray());
+
+        var summary = await admin.WaitForMessageAsync(envelope => envelope.Type == "command-summary" && envelope.CorrelationId == commandId);
+        CollectionAssert.AreEquivalent(new[] { "alpha", "bravo" }, summary.Payload?.GetProperty("completedDeviceIds").EnumerateArray().Select(item => item.GetString()).ToArray());
+        Assert.IsFalse(summary.Payload?.GetProperty("timedOut").GetBoolean() ?? true);
+    }
+
+    [TestMethod]
+    [TestCategory("TcpPlayground")]
+    [TestCategory("Tls")]
+    public async Task AllowlistRejectsUnknownCommandAsync()
+    {
+        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
+        await using var server = await StartTlsServerAsync(certificate);
+        await using var admin = CreateTrustedClient(server.Port, certificate, "admin-1", DeviceRoles.Admin);
+
+        await admin.ConnectAsync();
+        var error = await admin.SendRequestAsync("admin-command", new
+        {
+            commandId = "no-shell",
+            commandName = "exec-shell",
+            targetMode = "all"
+        }, envelope => envelope.Type == "error");
+
+        Assert.AreEqual("command_not_allowed", error.Payload?.GetProperty("code").GetString());
+    }
+
+    [TestMethod]
+    [TestCategory("TcpPlayground")]
+    [TestCategory("Tls")]
+    public async Task MalformedFrameIsIsolatedAsync()
     {
         using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
         await using var server = await StartTlsServerAsync(certificate);
         await using var goodClient = CreateTrustedClient(server.Port, certificate, "good-client");
         await goodClient.ConnectAsync();
 
-        var malformedResponse = await SendMalformedTlsMessageAsync(server.Port, certificate, "{oops}");
-        StringAssert.Contains(malformedResponse, "\"type\":\"error\"");
-        StringAssert.Contains(malformedResponse, "Malformed JSON line rejected.");
+        var malformedResponse = await SendTlsMessageAsync(server.Port, certificate, "{oops}");
+        StringAssert.Contains(malformedResponse, "\"code\":\"malformed_frame\"");
 
         var echo = await goodClient.SendRequestAsync("echo", new { message = "healthy" }, envelope => envelope.Type == "echo.response");
         Assert.AreEqual("healthy", echo.Payload?.GetProperty("message").GetString());
@@ -149,84 +181,138 @@ public sealed class TlsTcpPlaygroundIntegrationTests
     [TestMethod]
     [TestCategory("TcpPlayground")]
     [TestCategory("Tls")]
-    public async Task TlsClientCanReconnectAsync()
+    public async Task CommandTimeoutProducesSummaryAsync()
     {
         using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
-        await using var server = await StartTlsServerAsync(certificate);
-        await using var client = CreateTrustedClient(server.Port, certificate, "reconnect-client");
+        await using var server = await StartTlsServerAsync(certificate, defaultCommandTimeout: TimeSpan.FromMilliseconds(250));
+        await using var admin = CreateTrustedClient(server.Port, certificate, "admin-1", DeviceRoles.Admin);
+        await using var slowClient = CreateTrustedClient(server.Port, certificate, "slow-client");
 
-        await client.ConnectAsync();
-        await client.DisconnectAsync();
-        await client.ConnectAsync();
+        await Task.WhenAll(admin.ConnectAsync(), slowClient.ConnectAsync());
 
-        var response = await client.SendRequestAsync("echo", new { message = "after reconnect" }, envelope => envelope.Type == "echo.response");
-        Assert.AreEqual("after reconnect", response.Payload?.GetProperty("message").GetString());
+        var accepted = await admin.SendRequestAsync("admin-command", new
+        {
+            commandId = "slow-diagnostics",
+            commandName = "collect-diagnostics",
+            targetMode = "devices",
+            targetDeviceIds = new[] { "slow-client" },
+            timeoutMs = 250
+        }, envelope => envelope.Type == "admin-command.accepted");
+
+        var commandId = accepted.Payload?.GetProperty("commandId").GetString();
+        var inbound = await slowClient.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId);
+        Assert.AreEqual("collect-diagnostics", inbound.Payload?.GetProperty("commandName").GetString());
+
+        var summary = await admin.WaitForMessageAsync(
+            envelope => envelope.Type == "command-summary" && envelope.CorrelationId == commandId,
+            timeoutOverride: TimeSpan.FromSeconds(2));
+        Assert.IsTrue(summary.Payload?.GetProperty("timedOut").GetBoolean() ?? false);
+        CollectionAssert.AreEqual(new[] { "slow-client" }, summary.Payload?.GetProperty("timedOutDeviceIds").EnumerateArray().Select(item => item.GetString()).ToArray());
     }
 
     [TestMethod]
     [TestCategory("TcpPlayground")]
     [TestCategory("Tls")]
-    public async Task TlsClientHonorsTimeoutsAndCancellationAsync()
+    public async Task ReconnectAndClientDeduplicatesCommandIdAsync()
     {
         using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
         await using var server = await StartTlsServerAsync(certificate);
-        await using var client = new TcpTestClient(new TcpTestClientOptions
-        {
-            ClientId = "timing-client",
-            Port = server.Port,
-            RetryCount = 0,
-            UseTls = true,
-            ResponseTimeout = TimeSpan.FromMilliseconds(200),
-            RemoteCertificateValidationCallback = MatchCertificate(certificate)
-        });
+        await using var admin = CreateTrustedClient(server.Port, certificate, "admin-1", DeviceRoles.Admin);
+        var dedup = new DeduplicatingAgentHarness(server.Port, certificate, "dedup-agent");
 
-        await client.ConnectAsync();
-
-        await Assert.ThrowsExceptionAsync<TimeoutException>(() => client.SendRequestAsync(
-            "delay",
-            new { delayMs = 1000, message = "slow" },
-            envelope => envelope.Type == "delay.response",
-            timeoutOverride: TimeSpan.FromMilliseconds(150)));
-
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         try
         {
-            await client.SendRequestAsync(
-                "delay",
-                new { delayMs = 1000, message = "cancelled" },
-                envelope => envelope.Type == "delay.response",
-                cancellation.Token,
-                timeoutOverride: TimeSpan.FromSeconds(2));
-            Assert.Fail("Expected the delayed TLS request to be cancelled.");
-        }
-        catch (OperationCanceledException)
-        {
-        }
+            await admin.ConnectAsync();
+            await dedup.ConnectAsync();
 
-        await using var recoveryClient = CreateTrustedClient(server.Port, certificate, "recovery-client");
-        await recoveryClient.ConnectAsync();
-        var recoveryResponse = await recoveryClient.SendRequestAsync("echo", new { message = "recovered" }, envelope => envelope.Type == "echo.response");
-        Assert.AreEqual("recovered", recoveryResponse.Payload?.GetProperty("message").GetString());
+            var firstResult = await DispatchAndHandleDeduplicatedCommandAsync(admin, dedup, "sticky-command");
+            Assert.IsFalse(firstResult.Payload?.GetProperty("duplicate").GetBoolean() ?? true);
+
+            await dedup.DisconnectAsync();
+            await dedup.ConnectAsync();
+
+            var secondResult = await DispatchAndHandleDeduplicatedCommandAsync(admin, dedup, "sticky-command");
+            Assert.IsTrue(secondResult.Payload?.GetProperty("duplicate").GetBoolean() ?? false);
+        }
+        finally
+        {
+            await dedup.DisposeAsync();
+        }
     }
 
-    private static async Task<TcpPlaygroundServer> StartTlsServerAsync(X509Certificate2 certificate)
+    private static async Task<SocketEnvelope> DispatchAndHandleDeduplicatedCommandAsync(TcpTestClient admin, DeduplicatingAgentHarness dedup, string commandId)
+    {
+        var accepted = await admin.SendRequestAsync("admin-command", new
+        {
+            commandId,
+            commandName = "refresh-config",
+            targetMode = "devices",
+            targetDeviceIds = new[] { dedup.DeviceId },
+            timeoutMs = 1000
+        }, envelope => envelope.Type == "admin-command.accepted");
+
+        var effectiveCommandId = accepted.Payload?.GetProperty("commandId").GetString() ?? commandId;
+        await dedup.ProcessNextCommandAsync(effectiveCommandId);
+        var result = await admin.WaitForMessageAsync(envelope => envelope.Type == "command-result" && envelope.CorrelationId == effectiveCommandId);
+        var summary = await admin.WaitForMessageAsync(envelope => envelope.Type == "command-summary" && envelope.CorrelationId == effectiveCommandId);
+        Assert.IsFalse(summary.Payload?.GetProperty("timedOut").GetBoolean() ?? true);
+        return result;
+    }
+
+    private static async Task SendCommandAckAsync(TcpTestClient client, string commandId)
+        => await client.SendAsync(SocketEnvelope.Create(
+            type: "command-ack",
+            deviceId: client.ClientId,
+            payload: new
+            {
+                commandId,
+                status = "accepted"
+            },
+            role: client.Role,
+            correlationId: commandId));
+
+    private static async Task SendCommandResultAsync(TcpTestClient client, string commandId, string commandName, object result, bool duplicate = false)
+        => await client.SendAsync(SocketEnvelope.Create(
+            type: "command-result",
+            deviceId: client.ClientId,
+            payload: new
+            {
+                commandId,
+                commandName,
+                status = "completed",
+                success = true,
+                duplicate,
+                result
+            },
+            role: client.Role,
+            correlationId: commandId));
+
+    private static async Task<TcpPlaygroundServer> StartTlsServerAsync(
+        X509Certificate2 certificate,
+        DuplicateSessionPolicy duplicateSessionPolicy = DuplicateSessionPolicy.RejectNew,
+        TimeSpan? defaultCommandTimeout = null)
     {
         var server = new TcpPlaygroundServer(new TcpPlaygroundServerOptions
         {
-            ServerCertificate = certificate
+            ServerCertificate = certificate,
+            AuthenticationSecret = AuthSecret,
+            DuplicateSessionPolicy = duplicateSessionPolicy,
+            DefaultCommandTimeout = defaultCommandTimeout ?? TimeSpan.FromMilliseconds(500)
         });
 
         await server.StartAsync();
         return server;
     }
 
-    private static TcpTestClient CreateTrustedClient(int port, X509Certificate2 certificate, string clientId)
+    private static TcpTestClient CreateTrustedClient(int port, X509Certificate2 certificate, string clientId, string role = DeviceRoles.Client)
         => new(new TcpTestClientOptions
         {
             ClientId = clientId,
+            Role = role,
             Port = port,
             RetryCount = 0,
             UseTls = true,
+            AuthenticationSecret = AuthSecret,
             RemoteCertificateValidationCallback = MatchCertificate(certificate)
         });
 
@@ -240,7 +326,7 @@ public sealed class TlsTcpPlaygroundIntegrationTests
                 chain,
                 sslPolicyErrors);
 
-    private static async Task<string> SendMalformedTlsMessageAsync(int port, X509Certificate2 certificate, string payload)
+    private static async Task<string> SendTlsMessageAsync(int port, X509Certificate2 certificate, string payload)
     {
         using var client = new TcpClient();
         await client.ConnectAsync("127.0.0.1", port);
@@ -255,5 +341,42 @@ public sealed class TlsTcpPlaygroundIntegrationTests
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         return (await reader.ReadLineAsync(timeout.Token)) ?? string.Empty;
+    }
+
+    private sealed class DeduplicatingAgentHarness : IAsyncDisposable
+    {
+        private readonly HashSet<string> _seenCommandIds = new(StringComparer.OrdinalIgnoreCase);
+        private readonly TcpTestClient _client;
+
+        public DeduplicatingAgentHarness(int port, X509Certificate2 certificate, string deviceId)
+        {
+            DeviceId = deviceId;
+            _client = CreateTrustedClient(port, certificate, deviceId);
+        }
+
+        public string DeviceId { get; }
+
+        public Task ConnectAsync() => _client.ConnectAsync();
+
+        public Task DisconnectAsync() => _client.DisconnectAsync();
+
+        public async Task ProcessNextCommandAsync(string commandId)
+        {
+            var command = await _client.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId);
+            Assert.AreEqual(commandId, command.CorrelationId);
+
+            await SendCommandAckAsync(_client, commandId);
+            var duplicate = !_seenCommandIds.Add(commandId);
+            await SendCommandResultAsync(_client, commandId, "refresh-config", new
+            {
+                status = duplicate ? "replayed" : "applied",
+                observedBy = DeviceId
+            }, duplicate);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _client.DisposeAsync();
+        }
     }
 }

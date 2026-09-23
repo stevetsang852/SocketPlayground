@@ -270,6 +270,8 @@ public sealed class TcpTestClient : IAsyncDisposable
         }
 
         return sslPolicyErrors == SslPolicyErrors.None
-            || (_options.AllowUntrustedCertificates && serverCertificate is not null);
+            || (_options.AllowUntrustedCertificates
+                && serverCertificate is not null
+                && (sslPolicyErrors & ~SslPolicyErrors.RemoteCertificateChainErrors) == 0);
     }
 }

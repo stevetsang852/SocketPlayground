@@ -1,168 +1,177 @@
 # SocketPlayground
 
-SocketPlayground is a multi-language learning repository for comparing raw TCP and Socket.IO experiments without mixing the protocols.
+SocketPlayground is an educational, multi-language **socket learning playground**.
 
-## Recommended roadmap: B → C → D, but implement C first
+It is designed to help you compare:
 
-The long-term roadmap is:
+- **Raw TCP** patterns in .NET (`SocketServerNetCore`)
+- **Socket.IO** patterns in Node.js (`SocketIoNodejs`) and Python (`SocketIoServerPython`)
 
-1. **Phase C first (recommended): secure raw TCP with TLS**
-2. **Phase B next: UDP rendezvous / hole punching preparation**
-3. **Phase D later: Linux TUN-based VPN prototyping**
+> This repository is for learning and experimentation, not a production-ready single app.
 
-Phase C is the best first milestone because it is deterministic on loopback, works in CI, and teaches transport security without requiring public IPs, NAT behavior, root privileges, or routing changes.
+## Why this repo exists
 
-## Raw TCP vs Socket.IO
+Use this repository to learn and practice:
 
-- `SocketServerNetCore` is a **raw TCP** playground.
-- `SocketIoNodejs` and `SocketIoServerPython` are **Socket.IO** samples.
-- They are intentionally separate and are **not protocol-compatible**.
-- Because the Python sample is Socket.IO-only, this repository does **not** claim raw TCP ↔ Python Socket.IO wire compatibility and does not add misleading cross-language raw TCP tests.
+- socket server/client lifecycle (start, connect, disconnect, stop)
+- message framing and protocol contracts
+- timeout/retry/cancellation patterns
+- TLS over raw TCP in .NET
+- Socket.IO event-based communication flows
+- testable socket code with CI
 
-## Raw TCP architecture
+## Raw TCP vs Socket.IO (important)
 
-### Production/testable components
+These are different protocols and are intentionally separated in this repo:
 
-- `SocketServerNetCore/TcpPlayground/TcpPlaygroundServer.cs`
-  - async loopback server with start/stop lifecycle, cancellation, concurrent clients, optional TLS via `SslStream`
-- `SocketServerNetCore/TcpPlayground/TcpTestClient.cs`
-  - reusable client with connect/disconnect, retries, timeouts, reconnect support, transcript capture, and optional TLS validation hooks
-- `SocketServerNetCore/TcpPlayground/SocketScenarioRunner.cs`
-  - terminal-oriented scenario harness that writes JSON reports
-- `SocketServerNetCore/TcpPlayground/DevelopmentCertificateLoader.cs`
-  - creates or loads self-signed **development-only** certificates for loopback testing
+- `SocketServerNetCore` = **raw TCP** (+ optional TLS with `SslStream`)
+- `SocketIoNodejs` = **Socket.IO** (Node.js)
+- `SocketIoServerPython` = **Socket.IO** (Flask-SocketIO)
 
-### Message protocol
+They are **not wire-compatible** with each other.
 
-Raw TCP messages use **UTF-8 newline-delimited JSON**.
+## Prerequisites
 
-```json
-{
-  "requestId": "8bc1eb2f9fef4a25a0d6700b489f50f4",
-  "clientId": "alpha",
-  "type": "echo",
-  "timestampUtc": "2026-09-23T07:30:00Z",
-  "payload": {
-    "message": "hello tcp playground"
-  }
-}
-```
+Install these tools before running examples:
 
-Envelope fields:
+- [.NET SDK 8.x](https://dotnet.microsoft.com/download)
+- [Node.js 18+ and npm](https://nodejs.org/)
+- [Python 3.12+ and pip](https://www.python.org/)
 
-- `requestId`: correlation ID
-- `clientId`: logical client ID
-- `type`: event/command type
-- `timestampUtc`: UTC timestamp
-- `payload`: arbitrary JSON payload
+## Project layout
 
-## TLS model
+| Path | Type | Purpose | How to use |
+|---|---|---|---|
+| `SocketServerNetCore/` | .NET app | Main raw TCP playground server/scenario runner | Run server or scenario commands (see below) |
+| `SocketServerNetCore.Tests/` | .NET tests | Raw TCP/TLS protocol and integration tests | `dotnet test` |
+| `SocketIoNodejs/` | Node.js app | Simple Socket.IO chat demo | `npm install` + `npm start` |
+| `SocketIoServerPython/` | Python app | Flask-SocketIO sample server and related client helpers | `pip install -r requirements.txt`, run `server.py` |
+| `CommonClassLibrary/` | .NET library | Shared utilities referenced by other projects | Built via solution |
+| `CommonLibTest/` | .NET tests | Legacy/common library tests | Included in solution tests |
+| `PayloadNetNode/` | .NET app | Legacy/experimental payload automation code | Advanced/maintainer-oriented |
+| `DLLLibrary/` | .NET library | Supporting library for payload experiments | Advanced/maintainer-oriented |
+| `WatchDogNetCore/` | .NET app | Minimal watchdog console sample | Advanced/maintainer-oriented |
 
-- TLS is implemented with **.NET `SslStream`**
-- default manual/test usage is **loopback-only**
-- if `--tls true` is used without a certificate path, the server creates an **ephemeral self-signed development certificate**
-- tests trust the exact in-memory development certificate; they do not disable TLS globally
-- you may also supply a development `.pfx` at runtime with:
-  - `--tls-cert-path <path>`
-  - `--tls-cert-password <password>`
+## How each main component works
 
-### Security warnings
+### 1) `SocketServerNetCore` (raw TCP)
 
-- self-signed certificates in this repo are for **development/testing only**
-- **never** commit production private keys or secrets
-- **never** invent a custom AES/key-exchange protocol when TLS already solves the problem
-- **never** log secrets, credentials, or sensitive payloads
+- Entry point: `SocketServerNetCore/Program.cs`
+- Modes:
+  - `server`: run raw TCP server on loopback
+  - `scenario`: run built-in automated scenario tests and output JSON report
+- Protocol:
+  - UTF-8 newline-delimited JSON envelope
+  - fields: `requestId`, `clientId`, `type`, `timestampUtc`, `payload`
+- Optional TLS:
+  - enabled with `--tls true`
+  - uses `SslStream`
+  - can use generated dev certificate or provided `.pfx`
 
-## Automated tests
+### 2) `SocketIoNodejs` (Socket.IO chat)
 
-### Test projects
+- Entry point: `SocketIoNodejs/index.js`
+- Serves `index.html`
+- Handles `chat message` event and broadcasts to connected clients
+- Default port: `55556` (`PORT` env var can override)
 
-- `CommonLibTest`
-  - legacy MSTest project, with platform/network-dependent tests now skipped automatically when CI cannot support them
-- `SocketServerNetCore.Tests`
-  - dedicated raw TCP/TLS MSTest project added to `SocketPlayground.sln`
-- `SocketIoServerPython/tests`
-  - deterministic `pytest` coverage using Flask-SocketIO's in-process test client for the Python Socket.IO sample
+### 3) `SocketIoServerPython` (Flask-SocketIO)
 
-### TLS integration coverage
+- Main files:
+  - `SocketIoServerPython/server.py` (full Socket.IO sample server)
+  - `SocketIoServerPython/app.py` (minimal Socket.IO message echo sample)
+- Includes:
+  - room/session patterns
+  - event handlers for message routing
+  - `tests/test_socketio_server.py` with pytest-based coverage
+- Default port: `5556`
 
-`SocketServerNetCore.Tests` covers:
+## Setup and run
 
-- protocol metadata/defaulting and newline framing
-- successful TLS handshake
-- encrypted echo round trip
-- bidirectional broadcast/message flow
-- concurrent clients
-- untrusted certificate rejection
-- malformed message handling with structured errors
-- reconnect behavior
-- timeout and cancellation behavior
-- retry behavior when a loopback server starts after an initial connect failure
+### A. Clone and restore/build .NET solution
 
-The scenario runner also emits concise terminal diagnostics plus a JSON report in `artifacts/socket-playground-report.json` by default.
-
-## Phase B / Phase D preparation
-
-- **Phase B (NAT traversal)** is deliberately documented as a future local/manual effort. GitHub-hosted CI cannot honestly validate UDP hole punching across real NAT boundaries.
-- **Phase D (Linux TUN/VPN)** is kept as a platform-guarded placeholder only. CI does not require root, `/dev/net/tun`, or routing changes.
-- Placeholder tests in `SocketServerNetCore.Tests/RoadmapPlaceholderTests.cs` make those limits explicit instead of over-claiming coverage.
-
-## Local commands
-
-From the repository root:
+From repository root:
 
 ```bash
+dotnet restore SocketPlayground.sln
 dotnet build SocketPlayground.sln --configuration Release
-dotnet test SocketPlayground.sln --configuration Release
-python -m pip install -r SocketIoServerPython/requirements.txt pytest
-python -m pytest SocketIoServerPython/tests -q
 ```
 
-Run the raw TCP server:
+### B. Run the .NET raw TCP server
 
 ```bash
 dotnet run --project SocketServerNetCore -- server --port 11000
 ```
 
-Run the raw TCP TLS scenario harness:
+TLS mode:
+
+```bash
+dotnet run --project SocketServerNetCore -- server --port 11000 --tls true
+```
+
+Run automated scenario mode (writes JSON report):
 
 ```bash
 dotnet run --project SocketServerNetCore -- scenario --tls true
 ```
 
-Optional flags:
+### C. Run Node.js Socket.IO chat example
 
-- `--port 0`
-- `--report <path>`
-- `--connect-timeout-ms <ms>`
-- `--response-timeout-ms <ms>`
-- `--retry-count <count>`
-- `--retry-delay-ms <ms>`
-- `--allow-untrusted true` for manual development clients only
-- `--tls-cert-path <path>`
-- `--tls-cert-password <password>`
+```bash
+cd SocketIoNodejs
+npm install
+npm start
+```
+
+Open `http://localhost:55556` in two browser tabs and send messages.
+
+### D. Run Python Socket.IO app
+
+```bash
+cd SocketIoServerPython
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python server.py
+```
+
+Open `http://localhost:5556`.
+
+If you want the smaller sample instead:
+
+```bash
+python app.py
+```
+
+## Tests
+
+From repository root:
+
+```bash
+dotnet test SocketPlayground.sln --configuration Release
+python -m pip install -r SocketIoServerPython/requirements.txt pytest
+python -m pytest SocketIoServerPython/tests -q
+```
 
 ## CI
 
 GitHub Actions workflow: `.github/workflows/dotnet.yml`
 
-It performs:
+Current pipeline validates:
 
-1. `dotnet restore SocketPlayground.sln`
-2. `dotnet build SocketPlayground.sln --configuration Release`
-3. `dotnet test SocketPlayground.sln --configuration Release`
-4. `python -m pip install -r SocketIoServerPython/requirements.txt pytest`
-5. `python -m pytest SocketIoServerPython/tests -q`
+1. .NET restore/build/test for the solution
+2. Python dependency install from `SocketIoServerPython/requirements.txt`
+3. Python tests from `SocketIoServerPython/tests`
 
-### CI limitations
+## Caveats and safety notes
 
-- CI can validate loopback TCP and TLS
-- CI cannot prove NAT traversal through real consumer NATs
-- CI does not create Linux TUN devices or modify routes
+- This repo mixes multiple experiments; some projects are legacy and maintainer-oriented.
+- Keep raw TCP and Socket.IO expectations separate; do not assume cross-protocol compatibility.
+- TLS certificates here are for development/testing unless you explicitly provide production-grade cert management.
+- Do not commit secrets, tokens, or private keys.
 
-## Safe manual validation ideas
+## Where to start (recommended learning path)
 
-- run the TLS scenario locally and inspect the JSON report
-- connect with a manual client using the development certificate
-- inspect loopback traffic with Wireshark to confirm application payloads are wrapped inside TLS records
-- test certificate rejection paths with a client that does **not** trust the dev certificate
+1. Start with `SocketServerNetCore` in `server` mode.
+2. Run `scenario` mode to understand automated socket behavior and reports.
+3. Run Node.js and Python Socket.IO examples to compare event-driven Socket.IO flow vs raw TCP framing.
+4. Read tests in `SocketServerNetCore.Tests` and `SocketIoServerPython/tests` to learn expected behavior.

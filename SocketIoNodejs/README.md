@@ -1,15 +1,48 @@
-# chat-example
+# SocketIoNodejs
 
-This is the source code for a very simple chat example used for
-the [Getting Started](http://socket.io/get-started/chat/) guide
-of the Socket.IO website.
+Node.js + Socket.IO chat example used in this repository's learning playground.
 
-Please refer to it to learn how to run this application.
+## What this app does
 
-You can also spin up a free Heroku dyno to test it out:
+- starts an Express HTTP server
+- mounts Socket.IO on top of that server
+- serves `index.html`
+- broadcasts `chat message` events to all connected clients
 
-[![Deploy](https://www.herokucdn.com/deploy/button.png)](https://heroku.com/deploy?template=https://github.com/socketio/chat-example)
+Entry point: `index.js`
 
-Or run it on [Repl.it](https://repl.it/):
+## Prerequisites
 
-[![Run on Repl.it](https://repl.it/badge/github/socketio/chat-example)](https://repl.it/github/socketio/chat-example)
+- Node.js 18+
+- npm
+
+## Install
+
+```bash
+npm install
+```
+
+## Run
+
+```bash
+npm start
+```
+
+Default URL: `http://localhost:55556`
+
+You can override the port:
+
+```bash
+PORT=3000 npm start
+```
+
+## Quick manual test
+
+1. Open the app URL in two browser tabs.
+2. Send a message in one tab.
+3. Confirm both tabs receive the message.
+
+## Notes
+
+- This is a **Socket.IO** example, not raw TCP.
+- It is intentionally separate from the .NET raw TCP server in `SocketServerNetCore`.

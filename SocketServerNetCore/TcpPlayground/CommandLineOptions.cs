@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace SocketServerNetCore.TcpPlayground;
 
 public enum PlaygroundMode
@@ -17,6 +19,10 @@ public sealed class CommandLineOptions
     public int ResponseTimeoutMs { get; init; } = 2000;
     public int RetryCount { get; init; } = 1;
     public int RetryDelayMs { get; init; } = 250;
+    public bool TlsEnabled { get; init; }
+    public bool AllowUntrustedCertificates { get; init; }
+    public string? TlsCertPath { get; init; }
+    public string? TlsCertPassword { get; init; }
 
     public static CommandLineOptions Parse(string[] args)
     {
@@ -56,12 +62,21 @@ public sealed class CommandLineOptions
             ConnectTimeoutMs = GetInt(values, "connect-timeout-ms", 2000),
             ResponseTimeoutMs = GetInt(values, "response-timeout-ms", 2000),
             RetryCount = GetInt(values, "retry-count", 1),
-            RetryDelayMs = GetInt(values, "retry-delay-ms", 250)
+            RetryDelayMs = GetInt(values, "retry-delay-ms", 250),
+            TlsEnabled = GetBool(values, "tls", false),
+            AllowUntrustedCertificates = GetBool(values, "allow-untrusted", false),
+            TlsCertPath = values.TryGetValue("tls-cert-path", out var certPath) ? certPath : null,
+            TlsCertPassword = values.TryGetValue("tls-cert-password", out var certPassword) ? certPassword : null
         };
     }
 
     private static int GetInt(IReadOnlyDictionary<string, string> values, string key, int defaultValue)
         => values.TryGetValue(key, out var value) && int.TryParse(value, out var parsed)
+            ? parsed
+            : defaultValue;
+
+    private static bool GetBool(IReadOnlyDictionary<string, string> values, string key, bool defaultValue)
+        => values.TryGetValue(key, out var value) && bool.TryParse(value, out var parsed)
             ? parsed
             : defaultValue;
 }

@@ -1,5 +1,8 @@
 using System.Diagnostics;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 
@@ -10,20 +13,24 @@ public sealed class SocketScenarioRunner
     public async Task<SocketTestReport> RunAsync(SocketScenarioRunnerOptions options, CancellationToken cancellationToken = default)
     {
         var report = new SocketTestReport();
+        var serverCertificate = options.UseTls
+            ? options.ServerCertificate ?? DevelopmentCertificateLoader.CreateLoopbackCertificate()
+            : null;
         await using var server = new TcpPlaygroundServer(new TcpPlaygroundServerOptions
         {
             Port = options.Port,
-            Backlog = options.Backlog
+            Backlog = options.Backlog,
+            ServerCertificate = serverCertificate
         });
 
         await server.StartAsync(cancellationToken);
         report.ServerPort = server.Port;
 
-        Console.WriteLine($"Started raw TCP server on 127.0.0.1:{server.Port}");
+        Console.WriteLine($"Started raw TCP server on 127.0.0.1:{server.Port}{(options.UseTls ? " with TLS" : string.Empty)}");
 
         await RunScenarioAsync(report, "echo/round-trip validation", async scenario =>
         {
-            await using var client = CreateClient(options, server.Port, "echo-client");
+            await using var client = CreateClient(options, server.Port, "echo-client", serverCertificate);
             await client.ConnectAsync(cancellationToken);
             var response = await client.SendRequestAsync(
                 "echo",
@@ -40,9 +47,9 @@ public sealed class SocketScenarioRunner
         {
             var clients = new[]
             {
-                CreateClient(options, server.Port, "alpha"),
-                CreateClient(options, server.Port, "bravo"),
-                CreateClient(options, server.Port, "charlie")
+                CreateClient(options, server.Port, "alpha", serverCertificate),
+                CreateClient(options, server.Port, "bravo", serverCertificate),
+                CreateClient(options, server.Port, "charlie", serverCertificate)
             };
 
             try
@@ -73,7 +80,7 @@ public sealed class SocketScenarioRunner
 
         await RunScenarioAsync(report, "disconnect/reconnect behavior", async scenario =>
         {
-            await using var client = CreateClient(options, server.Port, "reconnect-client");
+            await using var client = CreateClient(options, server.Port, "reconnect-client", serverCertificate);
             await client.ConnectAsync(cancellationToken);
             await client.DisconnectAsync();
             await client.ConnectAsync(cancellationToken);
@@ -85,15 +92,10 @@ public sealed class SocketScenarioRunner
 
         await RunScenarioAsync(report, "malformed input is rejected or isolated", async scenario =>
         {
-            await using var goodClient = CreateClient(options, server.Port, "good-client");
+            await using var goodClient = CreateClient(options, server.Port, "good-client", serverCertificate);
             await goodClient.ConnectAsync(cancellationToken);
 
-            using var badClient = new TcpClient();
-            await badClient.ConnectAsync("127.0.0.1", server.Port, cancellationToken);
-            await using (var writer = new StreamWriter(badClient.GetStream(), new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true, NewLine = "\n" })
-            {
-                await writer.WriteLineAsync("{ definitely-not-json }");
-            }
+            await SendMalformedMessageAsync(options, server.Port, serverCertificate, cancellationToken);
 
             var response = await goodClient.SendRequestAsync("echo", new { message = "still alive" }, envelope => envelope.Type == "echo.response", cancellationToken);
             var payload = response.DeserializePayload<EchoPayload>();
@@ -103,7 +105,7 @@ public sealed class SocketScenarioRunner
 
         await RunScenarioAsync(report, "timeout/error reporting", async scenario =>
         {
-            await using var client = CreateClient(options, server.Port, "timeout-client", responseTimeout: TimeSpan.FromMilliseconds(250));
+            await using var client = CreateClient(options, server.Port, "timeout-client", serverCertificate, TimeSpan.FromMilliseconds(250));
             await client.ConnectAsync(cancellationToken);
 
             var error = await client.SendRequestAsync("unknown", null, envelope => envelope.Type == "error", cancellationToken);
@@ -135,7 +137,7 @@ public sealed class SocketScenarioRunner
         return report;
     }
 
-    private static TcpTestClient CreateClient(SocketScenarioRunnerOptions options, int port, string clientId, TimeSpan? responseTimeout = null)
+    private static TcpTestClient CreateClient(SocketScenarioRunnerOptions options, int port, string clientId, X509Certificate2? serverCertificate, TimeSpan? responseTimeout = null)
         => new(new TcpTestClientOptions
         {
             ClientId = clientId,
@@ -144,7 +146,11 @@ public sealed class SocketScenarioRunner
             ConnectTimeout = options.ConnectTimeout,
             ResponseTimeout = responseTimeout ?? options.ResponseTimeout,
             RetryCount = options.RetryCount,
-            RetryDelay = options.RetryDelay
+            RetryDelay = options.RetryDelay,
+            UseTls = options.UseTls,
+            TlsTargetHost = options.TlsTargetHost,
+            AllowUntrustedCertificates = options.AllowUntrustedCertificates,
+            RemoteCertificateValidationCallback = CreateCertificateValidationCallback(serverCertificate)
         });
 
     private static async Task RunScenarioAsync(SocketTestReport report, string name, Func<ScenarioResult, Task> action, CancellationToken cancellationToken)
@@ -191,6 +197,48 @@ public sealed class SocketScenarioRunner
             scenario.Passed = false;
             scenario.Failures.Add(message);
         }
+    }
+
+    private static Func<X509Certificate2?, X509Chain?, System.Net.Security.SslPolicyErrors, bool>? CreateCertificateValidationCallback(X509Certificate2? certificate)
+        => certificate is null
+            ? null
+            : (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint;
+
+    private static RemoteCertificateValidationCallback? CreateRemoteCertificateValidationCallback(X509Certificate2? certificate)
+    {
+        var certificateValidationCallback = CreateCertificateValidationCallback(certificate);
+        if (certificateValidationCallback is null)
+        {
+            return null;
+        }
+
+        return (_, presentedCertificate, chain, sslPolicyErrors)
+            => certificateValidationCallback(
+                presentedCertificate is null ? null : new X509Certificate2(presentedCertificate),
+                chain,
+                sslPolicyErrors);
+    }
+
+    private static async Task SendMalformedMessageAsync(SocketScenarioRunnerOptions options, int port, X509Certificate2? serverCertificate, CancellationToken cancellationToken)
+    {
+        using var client = new TcpClient();
+        await client.ConnectAsync("127.0.0.1", port, cancellationToken);
+
+        Stream stream = client.GetStream();
+        if (options.UseTls)
+        {
+            var sslStream = new SslStream(stream, leaveInnerStreamOpen: false, CreateRemoteCertificateValidationCallback(serverCertificate));
+            await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
+            {
+                TargetHost = options.TlsTargetHost,
+                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                CertificateRevocationCheckMode = X509RevocationMode.NoCheck
+            }, cancellationToken);
+            stream = sslStream;
+        }
+
+        await using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: false) { AutoFlush = true, NewLine = "\n" };
+        await writer.WriteLineAsync("{ definitely-not-json }");
     }
 
     private sealed class EchoPayload

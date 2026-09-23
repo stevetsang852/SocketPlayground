@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using CommonLibTest.Interface;
 using Payload.Core.Command;
 using Payload.Core.Command.Demo;
 
@@ -11,6 +12,7 @@ namespace CommonLibTest
         [TestMethod]
         public void TestMethodDemoCommand()
         {
+            TestEnvironmentRequirements.RequireWindows();
             DemoCommand cmd = new DemoFactory().CreateCommand();
             cmd.Execute();
             

@@ -16,6 +16,7 @@ namespace CommonLibTest
         [TestMethod]
         public void TestCopyItseftCommand()
         {
+            TestEnvironmentRequirements.RequireWindows();
             //SetUp
             base.WorkingPathSetUp();
 

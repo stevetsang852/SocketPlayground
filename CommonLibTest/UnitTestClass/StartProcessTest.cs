@@ -14,6 +14,7 @@ namespace CommonLibTest
         [TestMethod]
         public void TestCallAdminCommand()
         {
+            TestEnvironmentRequirements.RequireWindows();
             CallAdminCommand cmd = new CallAdminCommand();
             cmd.Execute();
         }
@@ -21,6 +22,7 @@ namespace CommonLibTest
         [TestMethod]
         public void TestStartProcessCommand()
         {
+            TestEnvironmentRequirements.RequireWindows();
             //SetUp
             base.WorkingPathSetUp();
 

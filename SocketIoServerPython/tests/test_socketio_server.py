@@ -9,6 +9,18 @@ from client_manager import ClientManager
 from server import app, socketio
 
 
+def _message_payloads(client):
+    payloads = []
+    for message in client.get_received():
+        if message["name"] != "message":
+            continue
+
+        args = message["args"]
+        payloads.append(args[0] if isinstance(args, (list, tuple)) else args)
+
+    return payloads
+
+
 @pytest.fixture
 def socket_clients():
     sender = socketio.test_client(app)
@@ -25,11 +37,8 @@ def test_message_broadcasts_to_all_connected_clients(socket_clients):
 
     sender.send("hello from pytest")
 
-    sender_messages = sender.get_received()
-    receiver_messages = receiver.get_received()
-
-    assert [message["args"] for message in sender_messages if message["name"] == "message"] == ["hello from pytest"]
-    assert [message["args"] for message in receiver_messages if message["name"] == "message"] == ["hello from pytest"]
+    assert _message_payloads(sender) == ["hello from pytest"]
+    assert _message_payloads(receiver) == ["hello from pytest"]
 
 
 def test_client_manager_tracks_and_removes_sessions():

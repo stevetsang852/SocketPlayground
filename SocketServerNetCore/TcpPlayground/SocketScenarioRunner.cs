@@ -13,119 +13,117 @@ public sealed class SocketScenarioRunner
     public async Task<SocketTestReport> RunAsync(SocketScenarioRunnerOptions options, CancellationToken cancellationToken = default)
     {
         var report = new SocketTestReport();
-        var serverCertificate = options.UseTls
-            ? options.ServerCertificate ?? DevelopmentCertificateLoader.CreateLoopbackCertificate()
-            : null;
+        var serverCertificate = options.ServerCertificate ?? DevelopmentCertificateLoader.CreateLoopbackCertificate();
         await using var server = new TcpPlaygroundServer(new TcpPlaygroundServerOptions
         {
             Port = options.Port,
             Backlog = options.Backlog,
-            ServerCertificate = serverCertificate
+            ServerCertificate = serverCertificate,
+            AuthenticationSecret = options.AuthenticationSecret,
+            AuthenticationTimeout = options.AuthenticationTimeout,
+            DefaultCommandTimeout = options.DefaultCommandTimeout,
+            DuplicateSessionPolicy = options.DuplicateSessionPolicy
         });
 
         await server.StartAsync(cancellationToken);
         report.ServerPort = server.Port;
 
-        Console.WriteLine($"Started raw TCP server on 127.0.0.1:{server.Port}{(options.UseTls ? " with TLS" : string.Empty)}");
+        Console.WriteLine($"Started secure raw TCP server on 127.0.0.1:{server.Port} with TLS");
 
-        await RunScenarioAsync(report, "echo/round-trip validation", async scenario =>
+        await RunScenarioAsync(report, "authenticated heartbeat", async scenario =>
         {
-            await using var client = CreateClient(options, server.Port, "echo-client", serverCertificate);
+            await using var client = CreateClient(options, server.Port, "heartbeat-client", DeviceRoles.Client, serverCertificate);
             await client.ConnectAsync(cancellationToken);
-            var response = await client.SendRequestAsync(
-                "echo",
-                new { message = "hello tcp playground", ordinal = 1 },
-                envelope => envelope.Type == "echo.response",
-                cancellationToken);
 
-            var payload = response.DeserializePayload<EchoPayload>();
-            Assert(payload?.Message == "hello tcp playground", scenario, "Echo payload did not round-trip.");
+            var response = await client.SendRequestAsync("heartbeat", new { sequence = 1 }, envelope => envelope.Type == "heartbeat.ack", cancellationToken);
+            Assert(response.Type == "heartbeat.ack", scenario, "Heartbeat acknowledgement was not returned.");
             CaptureTranscripts(scenario, client);
         }, cancellationToken);
 
-        await RunScenarioAsync(report, "concurrent broadcast or fan-out validation", async scenario =>
+        await RunScenarioAsync(report, "admin command fan-out with ack/result summary", async scenario =>
         {
-            var clients = new[]
-            {
-                CreateClient(options, server.Port, "alpha", serverCertificate),
-                CreateClient(options, server.Port, "bravo", serverCertificate),
-                CreateClient(options, server.Port, "charlie", serverCertificate)
-            };
+            await using var admin = CreateClient(options, server.Port, "admin-1", DeviceRoles.Admin, serverCertificate);
+            await using var alpha = CreateClient(options, server.Port, "alpha", DeviceRoles.Client, serverCertificate);
+            await using var bravo = CreateClient(options, server.Port, "bravo", DeviceRoles.Client, serverCertificate);
+            await Task.WhenAll(admin.ConnectAsync(cancellationToken), alpha.ConnectAsync(cancellationToken), bravo.ConnectAsync(cancellationToken));
 
+            var accepted = await admin.SendRequestAsync("admin-command", new
+            {
+                commandId = "scenario-health-check",
+                commandName = "health-check",
+                targetMode = "all",
+                timeoutMs = 1500
+            }, envelope => envelope.Type == "admin-command.accepted", cancellationToken);
+
+            var commandId = accepted.Payload?.GetProperty("commandId").GetString() ?? "scenario-health-check";
+            var alphaCommand = await alpha.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId, cancellationToken: cancellationToken);
+            var bravoCommand = await bravo.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId, cancellationToken: cancellationToken);
+
+            await SendCommandAckAsync(alpha, commandId, cancellationToken);
+            await SendCommandAckAsync(bravo, commandId, cancellationToken);
+            await SendCommandResultAsync(alpha, commandId, "health-check", new { status = "ok", observedBy = "alpha" }, cancellationToken);
+            await SendCommandResultAsync(bravo, commandId, "health-check", new { status = "ok", observedBy = "bravo" }, cancellationToken);
+
+            var summary = await admin.WaitForMessageAsync(envelope => envelope.Type == "command-summary" && envelope.CorrelationId == commandId, cancellationToken: cancellationToken);
+            Assert(summary.Payload?.GetProperty("completedDeviceIds").GetArrayLength() == 2, scenario, "Expected both clients to complete the command.");
+
+            CaptureTranscripts(scenario, admin);
+            CaptureTranscripts(scenario, alpha);
+            CaptureTranscripts(scenario, bravo);
+        }, cancellationToken);
+
+        await RunScenarioAsync(report, "duplicate device rejection", async scenario =>
+        {
+            await using var original = CreateClient(options, server.Port, "shared-device", DeviceRoles.Client, serverCertificate);
+            await using var duplicate = CreateClient(options, server.Port, "shared-device", DeviceRoles.Client, serverCertificate);
+            await original.ConnectAsync(cancellationToken);
             try
             {
-                await Task.WhenAll(clients.Select(client => client.ConnectAsync(cancellationToken)));
-                var sender = clients[0];
-                var request = SocketEnvelope.Create("broadcast", sender.ClientId, new { message = "sync" });
-                await sender.SendAsync(request, cancellationToken);
-
-                var messages = await Task.WhenAll(clients.Select(client => client.WaitForMessageAsync(
-                    envelope => envelope.Type == "broadcast.event" && envelope.RequestId == request.RequestId,
-                    cancellationToken: cancellationToken)));
-
-                Assert(messages.Length == 3, scenario, "Not every connected client received the broadcast.");
-                foreach (var client in clients)
-                {
-                    CaptureTranscripts(scenario, client);
-                }
+                await duplicate.ConnectAsync(cancellationToken);
+                Assert(false, scenario, "Expected duplicate device authentication to fail.");
             }
-            finally
+            catch (AuthenticationException)
             {
-                foreach (var client in clients)
-                {
-                    await client.DisposeAsync();
-                }
             }
+
+            CaptureTranscripts(scenario, original);
+            CaptureTranscripts(scenario, duplicate);
         }, cancellationToken);
 
-        await RunScenarioAsync(report, "disconnect/reconnect behavior", async scenario =>
+        await RunScenarioAsync(report, "malformed input is isolated", async scenario =>
         {
-            await using var client = CreateClient(options, server.Port, "reconnect-client", serverCertificate);
-            await client.ConnectAsync(cancellationToken);
-            await client.DisconnectAsync();
-            await client.ConnectAsync(cancellationToken);
-            var response = await client.SendRequestAsync("echo", new { message = "after reconnect" }, envelope => envelope.Type == "echo.response", cancellationToken);
-            var payload = response.DeserializePayload<EchoPayload>();
-            Assert(payload?.Message == "after reconnect", scenario, "Reconnected client failed to receive an echo response.");
-            CaptureTranscripts(scenario, client);
-        }, cancellationToken);
-
-        await RunScenarioAsync(report, "malformed input is rejected or isolated", async scenario =>
-        {
-            await using var goodClient = CreateClient(options, server.Port, "good-client", serverCertificate);
-            await goodClient.ConnectAsync(cancellationToken);
+            await using var healthyClient = CreateClient(options, server.Port, "healthy-client", DeviceRoles.Client, serverCertificate);
+            await healthyClient.ConnectAsync(cancellationToken);
 
             await SendMalformedMessageAsync(options, server.Port, serverCertificate, cancellationToken);
 
-            var response = await goodClient.SendRequestAsync("echo", new { message = "still alive" }, envelope => envelope.Type == "echo.response", cancellationToken);
-            var payload = response.DeserializePayload<EchoPayload>();
-            Assert(payload?.Message == "still alive", scenario, "A malformed client disrupted healthy client traffic.");
-            CaptureTranscripts(scenario, goodClient);
+            var echo = await healthyClient.SendRequestAsync("echo", new { message = "still alive" }, envelope => envelope.Type == "echo.response", cancellationToken);
+            Assert(echo.Payload?.GetProperty("message").GetString() == "still alive", scenario, "Healthy client traffic was disrupted.");
+            CaptureTranscripts(scenario, healthyClient);
         }, cancellationToken);
 
-        await RunScenarioAsync(report, "timeout/error reporting", async scenario =>
+        await RunScenarioAsync(report, "command timeout summary", async scenario =>
         {
-            await using var client = CreateClient(options, server.Port, "timeout-client", serverCertificate, TimeSpan.FromMilliseconds(250));
-            await client.ConnectAsync(cancellationToken);
+            await using var admin = CreateClient(options, server.Port, "admin-timeout", DeviceRoles.Admin, serverCertificate);
+            await using var client = CreateClient(options, server.Port, "slow-client", DeviceRoles.Client, serverCertificate);
+            await Task.WhenAll(admin.ConnectAsync(cancellationToken), client.ConnectAsync(cancellationToken));
 
-            var error = await client.SendRequestAsync("unknown", null, envelope => envelope.Type == "error", cancellationToken);
-            Assert(error.Type == "error", scenario, "Unknown message types should return a structured error.");
-
-            try
+            var accepted = await admin.SendRequestAsync("admin-command", new
             {
-                await client.SendRequestAsync(
-                    "delay",
-                    new { delayMs = 1000, message = "slow" },
-                    envelope => envelope.Type == "delay.response",
-                    cancellationToken,
-                    timeoutOverride: TimeSpan.FromMilliseconds(250));
-                Assert(false, scenario, "Expected a timeout while waiting for a delayed response.");
-            }
-            catch (TimeoutException exception)
-            {
-                scenario.Diagnostics.Add($"Observed expected timeout: {exception.Message}");
-            }
+                commandId = "scenario-timeout",
+                commandName = "collect-diagnostics",
+                targetMode = "devices",
+                targetDeviceIds = new[] { "slow-client" },
+                timeoutMs = 300
+            }, envelope => envelope.Type == "admin-command.accepted", cancellationToken);
 
+            var commandId = accepted.Payload?.GetProperty("commandId").GetString() ?? "scenario-timeout";
+            var inbound = await client.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId, cancellationToken: cancellationToken);
+            Assert(inbound.Type == "admin-command", scenario, "Expected client command dispatch.");
+
+            var summary = await admin.WaitForMessageAsync(envelope => envelope.Type == "command-summary" && envelope.CorrelationId == commandId, timeoutOverride: TimeSpan.FromSeconds(2), cancellationToken: cancellationToken);
+            Assert(summary.Payload?.GetProperty("timedOut").GetBoolean() == true, scenario, "Expected a timed out command summary.");
+            CaptureTranscripts(scenario, admin);
             CaptureTranscripts(scenario, client);
         }, cancellationToken);
 
@@ -137,21 +135,50 @@ public sealed class SocketScenarioRunner
         return report;
     }
 
-    private static TcpTestClient CreateClient(SocketScenarioRunnerOptions options, int port, string clientId, X509Certificate2? serverCertificate, TimeSpan? responseTimeout = null)
+    private static TcpTestClient CreateClient(SocketScenarioRunnerOptions options, int port, string clientId, string role, X509Certificate2 serverCertificate)
         => new(new TcpTestClientOptions
         {
             ClientId = clientId,
+            Role = role,
             Host = "127.0.0.1",
             Port = port,
             ConnectTimeout = options.ConnectTimeout,
-            ResponseTimeout = responseTimeout ?? options.ResponseTimeout,
+            ResponseTimeout = options.ResponseTimeout,
             RetryCount = options.RetryCount,
             RetryDelay = options.RetryDelay,
             UseTls = options.UseTls,
             TlsTargetHost = options.TlsTargetHost,
             AllowUntrustedCertificates = options.AllowUntrustedCertificates,
+            AuthenticationSecret = options.AuthenticationSecret,
             RemoteCertificateValidationCallback = CreateCertificateValidationCallback(serverCertificate)
         });
+
+    private static async Task SendCommandAckAsync(TcpTestClient client, string commandId, CancellationToken cancellationToken)
+        => await client.SendAsync(SocketEnvelope.Create(
+            type: "command-ack",
+            deviceId: client.ClientId,
+            payload: new
+            {
+                commandId,
+                status = "accepted"
+            },
+            role: client.Role,
+            correlationId: commandId), cancellationToken);
+
+    private static async Task SendCommandResultAsync(TcpTestClient client, string commandId, string commandName, object result, CancellationToken cancellationToken)
+        => await client.SendAsync(SocketEnvelope.Create(
+            type: "command-result",
+            deviceId: client.ClientId,
+            payload: new
+            {
+                commandId,
+                commandName,
+                status = "completed",
+                success = true,
+                result
+            },
+            role: client.Role,
+            correlationId: commandId), cancellationToken);
 
     private static async Task RunScenarioAsync(SocketTestReport report, string name, Func<ScenarioResult, Task> action, CancellationToken cancellationToken)
     {
@@ -199,27 +226,17 @@ public sealed class SocketScenarioRunner
         }
     }
 
-    private static Func<X509Certificate2?, X509Chain?, System.Net.Security.SslPolicyErrors, bool>? CreateCertificateValidationCallback(X509Certificate2? certificate)
-        => certificate is null
-            ? null
-            : (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint;
+    private static Func<X509Certificate2?, X509Chain?, SslPolicyErrors, bool> CreateCertificateValidationCallback(X509Certificate2 certificate)
+        => (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint;
 
-    private static RemoteCertificateValidationCallback? CreateRemoteCertificateValidationCallback(X509Certificate2? certificate)
-    {
-        var certificateValidationCallback = CreateCertificateValidationCallback(certificate);
-        if (certificateValidationCallback is null)
-        {
-            return null;
-        }
-
-        return (_, presentedCertificate, chain, sslPolicyErrors)
-            => certificateValidationCallback(
+    private static RemoteCertificateValidationCallback CreateRemoteCertificateValidationCallback(X509Certificate2 certificate)
+        => (_, presentedCertificate, chain, sslPolicyErrors)
+            => CreateCertificateValidationCallback(certificate)(
                 presentedCertificate is null ? null : new X509Certificate2(presentedCertificate),
                 chain,
                 sslPolicyErrors);
-    }
 
-    private static async Task SendMalformedMessageAsync(SocketScenarioRunnerOptions options, int port, X509Certificate2? serverCertificate, CancellationToken cancellationToken)
+    private static async Task SendMalformedMessageAsync(SocketScenarioRunnerOptions options, int port, X509Certificate2 serverCertificate, CancellationToken cancellationToken)
     {
         using var client = new TcpClient();
         await client.ConnectAsync("127.0.0.1", port, cancellationToken);
@@ -239,10 +256,5 @@ public sealed class SocketScenarioRunner
 
         await using var writer = new StreamWriter(stream, new UTF8Encoding(false), leaveOpen: false) { AutoFlush = true, NewLine = "\n" };
         await writer.WriteLineAsync("{ definitely-not-json }");
-    }
-
-    private sealed class EchoPayload
-    {
-        public string? Message { get; set; }
     }
 }

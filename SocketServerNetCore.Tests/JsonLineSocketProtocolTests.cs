@@ -69,15 +69,20 @@ public sealed class TcpTestClientRetryTests
         portReservation.Start();
         var port = ((IPEndPoint)portReservation.LocalEndpoint).Port;
         portReservation.Stop();
+        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
 
         await using var client = new TcpTestClient(new TcpTestClientOptions
         {
             ClientId = "retry-client",
+            Role = DeviceRoles.Client,
             Port = port,
             ConnectTimeout = TimeSpan.FromMilliseconds(150),
             ResponseTimeout = TimeSpan.FromSeconds(1),
             RetryCount = 3,
-            RetryDelay = TimeSpan.FromMilliseconds(150)
+            RetryDelay = TimeSpan.FromMilliseconds(150),
+            UseTls = true,
+            AuthenticationSecret = "retry-secret",
+            RemoteCertificateValidationCallback = (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint
         });
 
         var connectTask = client.ConnectAsync();
@@ -85,7 +90,9 @@ public sealed class TcpTestClientRetryTests
 
         await using var server = new TcpPlaygroundServer(new TcpPlaygroundServerOptions
         {
-            Port = port
+            Port = port,
+            ServerCertificate = certificate,
+            AuthenticationSecret = "retry-secret"
         });
         await server.StartAsync();
         await connectTask;

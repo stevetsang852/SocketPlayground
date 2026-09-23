@@ -1,12 +1,13 @@
 {
   "name": "socket-chat-example",
   "version": "0.0.1",
-  "description": "my first socket.io app",
+  "description": "Socket.IO learning sample plus canonical raw TCP/TLS client example",
   "dependencies": {
     "express": "^4.17.1",
     "socket.io": "^4.1.2"
   },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test canonical-client.test.js"
   }
 }

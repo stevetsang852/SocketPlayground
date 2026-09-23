@@ -27,6 +27,7 @@ public sealed class TcpTestClient : IAsyncDisposable
     }
 
     public string ClientId => _options.ClientId;
+    public string Role => _options.Role;
     public bool IsTlsAuthenticated => _stream is SslStream sslStream && sslStream.IsAuthenticated;
     public bool IsEncryptedTransport => _stream is SslStream sslStream && sslStream.IsEncrypted;
     public List<TcpTranscriptEvent> Transcript { get; } = new();
@@ -58,8 +59,11 @@ public sealed class TcpTestClient : IAsyncDisposable
                 AddTranscript("client", "tls.handshake", $"TLS established for {_options.TlsTargetHost}");
             }
 
-            var welcome = await SendRequestAsync("hello", new { name = ClientId }, envelope => envelope.Type == "welcome", token);
-            AddTranscript("server", welcome.Type, "Handshake complete");
+            if (_options.AutoAuthenticate && (!string.IsNullOrWhiteSpace(_options.AuthenticationSecret) || !string.IsNullOrWhiteSpace(_options.AccessToken)))
+            {
+                var authenticated = await AuthenticateAsync(token);
+                AddTranscript("server", authenticated.Type, $"Authenticated as {ClientId} ({Role})");
+            }
         }, cancellationToken);
     }
 
@@ -123,8 +127,52 @@ public sealed class TcpTestClient : IAsyncDisposable
             throw new InvalidOperationException("Client is not connected.");
         }
 
+        envelope.DeviceId = string.IsNullOrWhiteSpace(envelope.DeviceId) ? ClientId : envelope.DeviceId;
+        envelope.ClientId = string.IsNullOrWhiteSpace(envelope.ClientId) ? envelope.DeviceId : envelope.ClientId;
+        envelope.Role = string.IsNullOrWhiteSpace(envelope.Role) ? Role : envelope.Role;
+        envelope.ProtocolVersion = string.IsNullOrWhiteSpace(envelope.ProtocolVersion) ? CommandProtocol.ProtocolVersion : envelope.ProtocolVersion;
+
         await _writer.WriteLineAsync(JsonLineSocketProtocol.Serialize(envelope));
         AddTranscript("client", envelope.Type, JsonLineSocketProtocol.Serialize(envelope));
+    }
+
+    public async Task<SocketEnvelope> AuthenticateAsync(CancellationToken cancellationToken = default)
+    {
+        var token = _options.AccessToken;
+        if (string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(_options.AuthenticationSecret))
+        {
+            token = CommandAuthTokenService.CreateToken(
+                _options.AuthenticationSecret,
+                ClientId,
+                Role,
+                DateTimeOffset.UtcNow.Add(_options.TokenLifetime));
+        }
+
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException("Authentication requires either AccessToken or AuthenticationSecret.");
+        }
+
+        var request = SocketEnvelope.Create(
+            type: "authenticate",
+            deviceId: ClientId,
+            payload: new
+            {
+                deviceId = ClientId,
+                accessToken = token
+            },
+            role: Role);
+        await SendAsync(request, cancellationToken);
+        var response = await WaitForMessageAsync(
+            envelope => envelope.RequestId == request.RequestId
+                && (envelope.Type == "authenticated" || envelope.Type == "error"),
+            cancellationToken: cancellationToken);
+        if (response.Type == "error")
+        {
+            throw new AuthenticationException(response.Payload?.GetProperty("message").GetString() ?? "Authentication failed.");
+        }
+
+        return response;
     }
 
     public async Task<SocketEnvelope> WaitForMessageAsync(
@@ -206,6 +254,17 @@ public sealed class TcpTestClient : IAsyncDisposable
             {
                 await action(cancellationToken);
                 return;
+            }
+            catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                lastException = new TimeoutException("The connection attempt timed out.", exception);
+                AddTranscript("client", "retry", $"Attempt {attempts} failed: {lastException.Message}");
+                if (attempts > _options.RetryCount)
+                {
+                    break;
+                }
+
+                await Task.Delay(_options.RetryDelay, cancellationToken);
             }
             catch (Exception exception) when (exception is SocketException or TimeoutException or IOException or AuthenticationException)
             {

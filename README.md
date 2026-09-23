@@ -1,177 +1,286 @@
 # SocketPlayground
 
-SocketPlayground is an educational, multi-language **socket learning playground**.
+SocketPlayground now has one **canonical interoperable command-and-control contract** for C#, Python, and Node.js:
 
-It is designed to help you compare:
+- transport: **raw TCP**
+- security: **TLS required**
+- framing: **UTF-8 newline-delimited JSON**
+- auth: **short-lived HMAC-signed token**
 
-- **Raw TCP** patterns in .NET (`SocketServerNetCore`)
-- **Socket.IO** patterns in Node.js (`SocketIoNodejs`) and Python (`SocketIoServerPython`)
+The existing Node.js and Python **Socket.IO** projects are still kept as learning samples, but they are **not wire-compatible** with the canonical raw TCP/TLS contract.
 
-> This repository is for learning and experimentation, not a production-ready single app.
+## Compatibility boundary
 
-## Why this repo exists
+### Canonical interoperable path
 
-Use this repository to learn and practice:
+These pieces all speak the same contract:
 
-- socket server/client lifecycle (start, connect, disconnect, stop)
-- message framing and protocol contracts
-- timeout/retry/cancellation patterns
-- TLS over raw TCP in .NET
-- Socket.IO event-based communication flows
-- testable socket code with CI
+- `.NET server` → `SocketServerNetCore`
+- `.NET test/admin/client helpers` → `SocketServerNetCore.Tests` + `SocketServerNetCore/TcpPlayground`
+- `Python canonical client` → `SocketIoServerPython/canonical_client.py`
+- `Node canonical client` → `SocketIoNodejs/canonical-client.js`
 
-## Raw TCP vs Socket.IO (important)
+### Retained learning samples
 
-These are different protocols and are intentionally separated in this repo:
+These remain **Socket.IO-only** examples:
 
-- `SocketServerNetCore` = **raw TCP** (+ optional TLS with `SslStream`)
-- `SocketIoNodejs` = **Socket.IO** (Node.js)
-- `SocketIoServerPython` = **Socket.IO** (Flask-SocketIO)
+- `SocketIoNodejs/index.js`
+- `SocketIoServerPython/server.py`
+- `SocketIoServerPython/app.py`
 
-They are **not wire-compatible** with each other.
+Do **not** connect the raw TCP/TLS server to the Socket.IO samples directly.
 
-## Prerequisites
+## Architecture
 
-Install these tools before running examples:
+```text
+admin client (authenticated, role=admin)
+    |
+    |  admin-command
+    v
+central TLS raw TCP server
+    |
+    +--> authenticated client device A (role=client)
+    +--> authenticated client device B (role=client)
+    +--> authenticated client device C (role=client)
+```
 
-- [.NET SDK 8.x](https://dotnet.microsoft.com/download)
-- [Node.js 18+ and npm](https://nodejs.org/)
-- [Python 3.12+ and pip](https://www.python.org/)
+Rules:
 
-## Project layout
+- a connection is unusable until `authenticate` succeeds
+- only authenticated sessions enter the active registry
+- exactly one authenticated session is allowed per stable `deviceId`
+- default duplicate policy is **reject-new**
+- only `admin` clients may send `admin-command`
+- only allowlisted commands are relayable/executable
+- clients never execute arbitrary shell strings
 
-| Path | Type | Purpose | How to use |
-|---|---|---|---|
-| `SocketServerNetCore/` | .NET app | Main raw TCP playground server/scenario runner | Run server or scenario commands (see below) |
-| `SocketServerNetCore.Tests/` | .NET tests | Raw TCP/TLS protocol and integration tests | `dotnet test` |
-| `SocketIoNodejs/` | Node.js app | Simple Socket.IO chat demo | `npm install` + `npm start` |
-| `SocketIoServerPython/` | Python app | Flask-SocketIO sample server and related client helpers | `pip install -r requirements.txt`, run `server.py` |
-| `CommonClassLibrary/` | .NET library | Shared utilities referenced by other projects | Built via solution |
-| `CommonLibTest/` | .NET tests | Legacy/common library tests | Included in solution tests |
-| `PayloadNetNode/` | .NET app | Legacy/experimental payload automation code | Advanced/maintainer-oriented |
-| `DLLLibrary/` | .NET library | Supporting library for payload experiments | Advanced/maintainer-oriented |
-| `WatchDogNetCore/` | .NET app | Minimal watchdog console sample | Advanced/maintainer-oriented |
+## Supported allowlisted commands
 
-## How each main component works
+- `health-check`
+- `refresh-config`
+- `collect-diagnostics`
 
-### 1) `SocketServerNetCore` (raw TCP)
+The sample clients map these names to safe in-process handlers only.
 
-- Entry point: `SocketServerNetCore/Program.cs`
-- Modes:
-  - `server`: run raw TCP server on loopback
-  - `scenario`: run built-in automated scenario tests and output JSON report
-- Protocol:
-  - UTF-8 newline-delimited JSON envelope
-  - fields: `requestId`, `clientId`, `type`, `timestampUtc`, `payload`
-- Optional TLS:
-  - enabled with `--tls true`
-  - uses `SslStream`
-  - can use generated dev certificate or provided `.pfx`
+## Protocol contract
 
-### 2) `SocketIoNodejs` (Socket.IO chat)
+Every frame is one JSON object plus `\n`.
 
-- Entry point: `SocketIoNodejs/index.js`
-- Serves `index.html`
-- Handles `chat message` event and broadcasts to connected clients
-- Default port: `55556` (`PORT` env var can override)
+### Shared envelope
 
-### 3) `SocketIoServerPython` (Flask-SocketIO)
+```json
+{
+  "protocolVersion": "1.0",
+  "requestId": "4e6f96f6f8fa4ce4bead8fd0d9b6d9df",
+  "deviceId": "py-agent-1",
+  "clientId": "py-agent-1",
+  "role": "client",
+  "type": "heartbeat",
+  "correlationId": null,
+  "timestampUtc": "2026-09-23T08:39:47.4700000+00:00",
+  "payload": {
+    "sequence": 1
+  }
+}
+```
 
-- Main files:
-  - `SocketIoServerPython/server.py` (full Socket.IO sample server)
-  - `SocketIoServerPython/app.py` (minimal Socket.IO message echo sample)
-- Includes:
-  - room/session patterns
-  - event handlers for message routing
-  - `tests/test_socketio_server.py` with pytest-based coverage
-- Default port: `5556`
+`clientId` is kept as a compatibility alias for older playground code; `deviceId` is the canonical identifier.
 
-## Setup and run
+### Message types
 
-### A. Clone and restore/build .NET solution
+| Type | Direction | Purpose |
+|---|---|---|
+| `authenticate` | client → server | first message only; contains token |
+| `authenticated` | server → client | auth success, role, expiry, allowlist |
+| `heartbeat` | client → server | keepalive / liveness |
+| `heartbeat.ack` | server → client | heartbeat response |
+| `admin-command` | admin → server, then server → clients | allowlisted command dispatch |
+| `admin-command.accepted` | server → admin | accepted targets + timeout |
+| `command-ack` | client → server, then server → admin | command accepted by target |
+| `command-result` | client → server, then server → admin | command finished |
+| `command-summary` | server → admin | aggregated completion/timeout summary |
+| `error` | server → client | structured rejection/error |
 
-From repository root:
+### Authentication flow
+
+1. TLS handshake completes
+2. client must send `authenticate` before the auth deadline
+3. server validates:
+   - token signature
+   - expiry
+   - role
+   - `deviceId` match
+4. only then is the session added to the authenticated registry
+
+If auth is absent, malformed, expired, invalid, unauthorized, or duplicated, the server returns `error` and closes the connection.
+
+### Duplicate device policy
+
+Default: `reject-new`
+
+- first authenticated session for a `deviceId` stays active
+- later authenticated session for the same `deviceId` is rejected safely
+
+Optional server setting:
+
+- `replace-existing`
+
+## Security model
+
+- TLS is required
+- application auth is required
+- tokens are short-lived HMAC-signed blobs for local/dev use
+- **never commit** real secrets or production certificates
+- `--allow-untrusted` is only for local development with self-signed certs
+- no arbitrary shell/PowerShell/bash execution is implemented
+- server validates admin role, target selection, and command allowlist
+- logs are audit-friendly but still educational, not production SIEM logging
+
+## Repository layout
+
+| Path | Purpose |
+|---|---|
+| `SocketServerNetCore/` | canonical TLS raw TCP server, token issuer, scenario runner |
+| `SocketServerNetCore.Tests/` | .NET protocol/integration tests |
+| `SocketIoServerPython/canonical_client.py` | canonical Python raw TCP/TLS client |
+| `SocketIoNodejs/canonical-client.js` | canonical Node raw TCP/TLS client |
+| `SocketIoServerPython/server.py` | legacy Socket.IO sample |
+| `SocketIoNodejs/index.js` | legacy Socket.IO sample |
+
+## Setup
+
+Prerequisites:
+
+- .NET SDK 8.x
+- Python 3.12+
+- Node.js 18+ (`20` used in CI)
+
+## Build and test
+
+From repo root:
 
 ```bash
 dotnet restore SocketPlayground.sln
 dotnet build SocketPlayground.sln --configuration Release
-```
-
-### B. Run the .NET raw TCP server
-
-```bash
-dotnet run --project SocketServerNetCore -- server --port 11000
-```
-
-TLS mode:
-
-```bash
-dotnet run --project SocketServerNetCore -- server --port 11000 --tls true
-```
-
-Run automated scenario mode (writes JSON report):
-
-```bash
-dotnet run --project SocketServerNetCore -- scenario --tls true
-```
-
-### C. Run Node.js Socket.IO chat example
-
-```bash
-cd SocketIoNodejs
-npm install
-npm start
-```
-
-Open `http://localhost:55556` in two browser tabs and send messages.
-
-### D. Run Python Socket.IO app
-
-```bash
-cd SocketIoServerPython
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python server.py
-```
-
-Open `http://localhost:5556`.
-
-If you want the smaller sample instead:
-
-```bash
-python app.py
-```
-
-## Tests
-
-From repository root:
-
-```bash
-dotnet test SocketPlayground.sln --configuration Release
+dotnet test SocketServerNetCore.Tests/SocketServerNetCore.Tests.csproj --configuration Release
 python -m pip install -r SocketIoServerPython/requirements.txt pytest
 python -m pytest SocketIoServerPython/tests -q
+cd SocketIoNodejs && npm ci && npm test
 ```
 
-## CI
+## Running the canonical server
 
-GitHub Actions workflow: `.github/workflows/dotnet.yml`
+Set a dev secret first:
 
-Current pipeline validates:
+```bash
+export SOCKET_PLAYGROUND_AUTH_SECRET="change-this-local-dev-secret"
+```
 
-1. .NET restore/build/test for the solution
-2. Python dependency install from `SocketIoServerPython/requirements.txt`
-3. Python tests from `SocketIoServerPython/tests`
+Start the server:
 
-## Caveats and safety notes
+```bash
+dotnet run --project SocketServerNetCore -- server --port 11000 --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET"
+```
 
-- This repo mixes multiple experiments; some projects are legacy and maintainer-oriented.
-- Keep raw TCP and Socket.IO expectations separate; do not assume cross-protocol compatibility.
-- TLS certificates here are for development/testing unless you explicitly provide production-grade cert management.
-- Do not commit secrets, tokens, or private keys.
+The server always uses TLS. If you do not provide `--tls-cert-path`, it generates a loopback development certificate in memory.
 
-## Where to start (recommended learning path)
+## Issuing a token manually
 
-1. Start with `SocketServerNetCore` in `server` mode.
-2. Run `scenario` mode to understand automated socket behavior and reports.
-3. Run Node.js and Python Socket.IO examples to compare event-driven Socket.IO flow vs raw TCP framing.
-4. Read tests in `SocketServerNetCore.Tests` and `SocketIoServerPython/tests` to learn expected behavior.
+```bash
+dotnet run --project SocketServerNetCore -- issue-token \
+  --device-id py-agent-1 \
+  --role client \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET"
+```
+
+## Running canonical clients
+
+### Python agent
+
+```bash
+python SocketIoServerPython/canonical_client.py \
+  --port 11000 \
+  --device-id py-agent-1 \
+  --role client \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
+  --allow-untrusted
+```
+
+### Node agent
+
+```bash
+node SocketIoNodejs/canonical-client.js \
+  --port 11000 \
+  --device-id node-agent-1 \
+  --role client \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
+  --allow-untrusted
+```
+
+### Node admin sending a targeted command
+
+```bash
+node SocketIoNodejs/canonical-client.js \
+  --port 11000 \
+  --device-id node-admin-1 \
+  --role admin \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
+  --allow-untrusted \
+  --send-command health-check \
+  --target-mode devices \
+  --target-device-id py-agent-1
+```
+
+### Python admin broadcasting a command
+
+```bash
+python SocketIoServerPython/canonical_client.py \
+  --port 11000 \
+  --device-id py-admin-1 \
+  --role admin \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
+  --allow-untrusted \
+  --send-command collect-diagnostics \
+  --target-mode all
+```
+
+## Scenario runner
+
+```bash
+dotnet run --project SocketServerNetCore -- scenario --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET"
+```
+
+This runs local authenticated integration scenarios and writes a JSON report.
+
+## Testing coverage
+
+The automated suite now covers:
+
+- unauthenticated rejection
+- invalid token rejection
+- duplicate `deviceId` rejection
+- non-admin command denial
+- allowlist rejection
+- admin broadcast/targeted command relay
+- ACK/result aggregation
+- malformed frame isolation
+- timeout summaries
+- reconnect + command-id dedup guidance
+- Python ↔ .NET interoperability
+- Node ↔ .NET interoperability
+
+## Reconnect, timeout, and dedup guidance
+
+- reconnect is allowed after the prior authenticated session closes
+- command dispatch includes a timeout and produces `command-summary`
+- sample clients keep an in-memory processed `commandId` set and mark repeated execution as `duplicate=true`
+- for real production use, dedup state should be persisted durably per device
+
+## Legacy Socket.IO samples
+
+These are still useful for learning Socket.IO patterns:
+
+- `cd SocketIoNodejs && npm install && npm start`
+- `cd SocketIoServerPython && python -m pip install -r requirements.txt && python server.py`
+
+Again: they are **not** part of the canonical raw TCP/TLS contract.

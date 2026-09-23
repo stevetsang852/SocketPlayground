@@ -16,6 +16,7 @@ try
     {
         PlaygroundMode.Server => await RunServerAsync(options, cancellation.Token),
         PlaygroundMode.Scenario => await RunScenarioAsync(options, cancellation.Token),
+        PlaygroundMode.IssueToken => RunIssueToken(options),
         _ => ShowUsage()
     };
 }
@@ -31,13 +32,17 @@ static async Task<int> RunServerAsync(CommandLineOptions options, CancellationTo
     {
         Port = options.Port,
         Backlog = options.Backlog,
-        ServerCertificate = ResolveServerCertificate(options)
+        ServerCertificate = ResolveServerCertificate(options),
+        AuthenticationSecret = ResolveAuthenticationSecret(options),
+        AuthenticationTimeout = TimeSpan.FromMilliseconds(options.AuthenticationTimeoutMs),
+        DefaultCommandTimeout = TimeSpan.FromMilliseconds(options.CommandTimeoutMs),
+        DuplicateSessionPolicy = CommandProtocol.ParseDuplicateSessionPolicy(options.DuplicatePolicy)
     };
 
     await using var server = new TcpPlaygroundServer(serverOptions);
     await server.StartAsync(cancellationToken);
 
-    Console.WriteLine($"TCP playground server listening on 127.0.0.1:{server.Port}{(serverOptions.ServerCertificate is null ? string.Empty : " with TLS")}");
+    Console.WriteLine($"TCP playground server listening on 127.0.0.1:{server.Port} with TLS");
     Console.WriteLine("Press Ctrl+C to stop.");
 
     try
@@ -66,7 +71,11 @@ static async Task<int> RunScenarioAsync(CommandLineOptions options, Cancellation
         RetryDelay = TimeSpan.FromMilliseconds(options.RetryDelayMs),
         UseTls = options.TlsEnabled,
         AllowUntrustedCertificates = options.AllowUntrustedCertificates,
-        ServerCertificate = serverCertificate
+        ServerCertificate = serverCertificate,
+        AuthenticationSecret = ResolveAuthenticationSecret(options),
+        AuthenticationTimeout = TimeSpan.FromMilliseconds(options.AuthenticationTimeoutMs),
+        DefaultCommandTimeout = TimeSpan.FromMilliseconds(options.CommandTimeoutMs),
+        DuplicateSessionPolicy = CommandProtocol.ParseDuplicateSessionPolicy(options.DuplicatePolicy)
     }, cancellationToken);
 
     Console.WriteLine();
@@ -76,21 +85,26 @@ static async Task<int> RunScenarioAsync(CommandLineOptions options, Cancellation
 
 static int ShowUsage()
 {
-    Console.WriteLine("SocketServerNetCore raw TCP playground");
+    Console.WriteLine("SocketServerNetCore secure raw TCP playground");
     Console.WriteLine();
     Console.WriteLine("Usage:");
-    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000]");
-    Console.WriteLine("  dotnet run --project SocketServerNetCore -- scenario [--report artifacts/socket-playground-report.json]");
-    Console.WriteLine("  dotnet run --project SocketServerNetCore -- scenario --tls true");
+    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000] [--auth-secret <value>]");
+    Console.WriteLine("  dotnet run --project SocketServerNetCore -- scenario [--report artifacts/socket-playground-report.json] [--auth-secret <value>]");
+    Console.WriteLine("  dotnet run --project SocketServerNetCore -- issue-token --device-id agent-1 --role client --auth-secret <value>");
     Console.WriteLine();
     Console.WriteLine("Modes:");
-    Console.WriteLine("  server    Starts the raw TCP server on loopback.");
-    Console.WriteLine("  scenario  Runs the automated client scenarios and writes a JSON report.");
+    Console.WriteLine("  server       Starts the TLS-protected raw TCP command broker on loopback.");
+    Console.WriteLine("  scenario     Runs automated authenticated client scenarios and writes a JSON report.");
+    Console.WriteLine("  issue-token  Prints a short-lived HMAC-signed token for a device/role pair.");
     Console.WriteLine();
-    Console.WriteLine("TLS options:");
-    Console.WriteLine("  --tls true                   Enables SslStream over the raw TCP transport.");
+    Console.WriteLine("Security options:");
+    Console.WriteLine("  --tls true                   Enables SslStream over the raw TCP transport (required).");
     Console.WriteLine("  --tls-cert-path <path>       Loads a PFX development certificate for the server.");
     Console.WriteLine("  --tls-cert-password <value>  Password for the PFX file.");
+    Console.WriteLine("  --auth-secret <value>        Shared development secret used to sign short-lived tokens.");
+    Console.WriteLine("  --auth-timeout-ms <value>    Authentication deadline in milliseconds.");
+    Console.WriteLine("  --command-timeout-ms <value> Default command result timeout in milliseconds.");
+    Console.WriteLine("  --duplicate-policy <value>   reject-new (default) or replace-existing.");
     Console.WriteLine("  --allow-untrusted true       Allows self-signed development certificates for manual clients.");
     return 1;
 }
@@ -99,10 +113,31 @@ static X509Certificate2? ResolveServerCertificate(CommandLineOptions options)
 {
     if (!options.TlsEnabled)
     {
-        return null;
+        throw new InvalidOperationException("TLS is required for this command-and-control server.");
     }
 
     return string.IsNullOrWhiteSpace(options.TlsCertPath)
         ? DevelopmentCertificateLoader.CreateLoopbackCertificate()
         : DevelopmentCertificateLoader.LoadFromFile(options.TlsCertPath, options.TlsCertPassword);
+}
+
+static string ResolveAuthenticationSecret(CommandLineOptions options)
+{
+    if (string.IsNullOrWhiteSpace(options.AuthenticationSecret))
+    {
+        throw new InvalidOperationException("Provide --auth-secret or set SOCKET_PLAYGROUND_AUTH_SECRET.");
+    }
+
+    return options.AuthenticationSecret;
+}
+
+static int RunIssueToken(CommandLineOptions options)
+{
+    var token = CommandAuthTokenService.CreateToken(
+        ResolveAuthenticationSecret(options),
+        options.DeviceId,
+        options.Role,
+        DateTimeOffset.UtcNow.AddMinutes(options.TokenLifetimeMinutes));
+    Console.WriteLine(token);
+    return 0;
 }

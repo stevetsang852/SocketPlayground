@@ -1,28 +1,64 @@
 # SocketIoNodejs
 
-Node.js + Socket.IO chat example used in this repository's learning playground.
+This folder now contains **two different Node.js examples**:
 
-## What this app does
+1. `index.js` → legacy **Socket.IO** chat sample
+2. `canonical-client.js` → canonical **raw TCP/TLS client** for interoperating with `SocketServerNetCore`
 
-- starts an Express HTTP server
-- mounts Socket.IO on top of that server
-- serves `index.html`
-- broadcasts `chat message` events to all connected clients
+Do not treat them as wire-compatible.
 
-Entry point: `index.js`
+## Canonical interoperable client
 
-## Prerequisites
+`canonical-client.js` speaks the repository's shared contract:
 
-- Node.js 18+
-- npm
+- raw TCP
+- TLS required
+- UTF-8 newline-delimited JSON
+- HMAC-signed short-lived auth token
 
-## Install
+### Run as authenticated client/agent
+
+```bash
+export SOCKET_PLAYGROUND_AUTH_SECRET="change-this-local-dev-secret"
+
+node canonical-client.js \
+  --port 11000 \
+  --device-id node-agent-1 \
+  --role client \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
+  --allow-untrusted
+```
+
+### Run as admin and send a command
+
+```bash
+node canonical-client.js \
+  --port 11000 \
+  --device-id node-admin-1 \
+  --role admin \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
+  --allow-untrusted \
+  --send-command collect-diagnostics \
+  --target-mode all
+```
+
+Safe handlers implemented by the sample client:
+
+- `health-check`
+- `refresh-config`
+- `collect-diagnostics`
+
+No arbitrary shell execution is supported.
+
+## Legacy Socket.IO sample
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-## Run
+Run the sample:
 
 ```bash
 npm start
@@ -30,19 +66,13 @@ npm start
 
 Default URL: `http://localhost:55556`
 
-You can override the port:
+This app is a Socket.IO chat demo only.
+
+## Tests
 
 ```bash
-PORT=3000 npm start
+npm ci
+npm test
 ```
 
-## Quick manual test
-
-1. Open the app URL in two browser tabs.
-2. Send a message in one tab.
-3. Confirm both tabs receive the message.
-
-## Notes
-
-- This is a **Socket.IO** example, not raw TCP.
-- It is intentionally separate from the .NET raw TCP server in `SocketServerNetCore`.
+The Node test suite now validates the canonical Node client against the .NET server.

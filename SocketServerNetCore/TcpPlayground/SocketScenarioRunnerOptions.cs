@@ -11,8 +11,12 @@ public sealed class SocketScenarioRunnerOptions
     public TimeSpan ResponseTimeout { get; init; } = TimeSpan.FromSeconds(2);
     public int RetryCount { get; init; } = 1;
     public TimeSpan RetryDelay { get; init; } = TimeSpan.FromMilliseconds(250);
-    public bool UseTls { get; init; }
+    public bool UseTls { get; init; } = true;
     public string TlsTargetHost { get; init; } = "localhost";
     public bool AllowUntrustedCertificates { get; init; }
     public X509Certificate2? ServerCertificate { get; init; }
+    public string AuthenticationSecret { get; init; } = "local-dev-secret";
+    public TimeSpan AuthenticationTimeout { get; init; } = TimeSpan.FromSeconds(5);
+    public TimeSpan DefaultCommandTimeout { get; init; } = TimeSpan.FromSeconds(2);
+    public DuplicateSessionPolicy DuplicateSessionPolicy { get; init; } = DuplicateSessionPolicy.RejectNew;
 }

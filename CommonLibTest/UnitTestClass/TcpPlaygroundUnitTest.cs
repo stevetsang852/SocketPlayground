@@ -1,4 +1,6 @@
 using System.Net.Sockets;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using SocketServerNetCore.TcpPlayground;
 
@@ -7,43 +9,62 @@ namespace CommonLibTest;
 [TestClass]
 public class TcpPlaygroundUnitTest
 {
+    private const string AuthSecret = "common-lib-test-secret";
+
     [TestMethod]
     [TestCategory("TcpPlayground")]
-    public async Task TcpServerHandlesEchoAndBroadcastAsync()
+    public async Task TcpServerHandlesEchoAndAdminCommandAsync()
     {
-        await using var server = new TcpPlaygroundServer(new TcpPlaygroundServerOptions());
+        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
+        await using var server = new TcpPlaygroundServer(new TcpPlaygroundServerOptions
+        {
+            ServerCertificate = certificate,
+            AuthenticationSecret = AuthSecret
+        });
         await server.StartAsync();
 
-        await using var alpha = CreateClient(server.Port, "alpha");
-        await using var bravo = CreateClient(server.Port, "bravo");
+        await using var alpha = CreateClient(server.Port, certificate, "alpha");
+        await using var bravo = CreateClient(server.Port, certificate, "bravo");
 
         await Task.WhenAll(alpha.ConnectAsync(), bravo.ConnectAsync());
 
         var echo = await alpha.SendRequestAsync("echo", new { message = "test" }, envelope => envelope.Type == "echo.response");
         Assert.AreEqual("test", echo.Payload?.GetProperty("message").GetString());
 
-        var request = SocketEnvelope.Create("broadcast", alpha.ClientId, new { message = "fanout" });
-        await alpha.SendAsync(request);
-        var responses = await Task.WhenAll(
-            alpha.WaitForMessageAsync(envelope => envelope.Type == "broadcast.event" && envelope.RequestId == request.RequestId),
-            bravo.WaitForMessageAsync(envelope => envelope.Type == "broadcast.event" && envelope.RequestId == request.RequestId));
+        await using var admin = CreateClient(server.Port, certificate, "admin", DeviceRoles.Admin);
+        await admin.ConnectAsync();
+        var accepted = await admin.SendRequestAsync("admin-command", new
+        {
+            commandId = "commonlib-health-check",
+            commandName = "health-check",
+            targetMode = "all",
+            timeoutMs = 1000
+        }, envelope => envelope.Type == "admin-command.accepted");
 
-        Assert.AreEqual(2, responses.Length);
-        Assert.IsTrue(responses.All(response => response.Payload?.GetProperty("fromClientId").GetString() == "alpha"));
+        var commandId = accepted.Payload?.GetProperty("commandId").GetString();
+        Assert.AreEqual("health-check", (await alpha.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId)).Payload?.GetProperty("commandName").GetString());
+        Assert.AreEqual("health-check", (await bravo.WaitForMessageAsync(envelope => envelope.Type == "admin-command" && envelope.CorrelationId == commandId)).Payload?.GetProperty("commandName").GetString());
     }
 
     [TestMethod]
     [TestCategory("TcpPlayground")]
     public async Task TcpServerIsolatesMalformedClientAsync()
     {
-        await using var server = new TcpPlaygroundServer(new TcpPlaygroundServerOptions());
+        using var certificate = DevelopmentCertificateLoader.CreateLoopbackCertificate();
+        await using var server = new TcpPlaygroundServer(new TcpPlaygroundServerOptions
+        {
+            ServerCertificate = certificate,
+            AuthenticationSecret = AuthSecret
+        });
         await server.StartAsync();
-        await using var goodClient = CreateClient(server.Port, "good");
+        await using var goodClient = CreateClient(server.Port, certificate, "good");
         await goodClient.ConnectAsync();
 
         using var badClient = new TcpClient();
         await badClient.ConnectAsync("127.0.0.1", server.Port);
-        await using (var writer = new StreamWriter(badClient.GetStream(), new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true, NewLine = "\n" })
+        using var sslStream = new SslStream(badClient.GetStream(), leaveInnerStreamOpen: false, (_, presentedCertificate, _, _) => presentedCertificate is not null && new X509Certificate2(presentedCertificate).Thumbprint == certificate.Thumbprint);
+        await sslStream.AuthenticateAsClientAsync("localhost");
+        await using (var writer = new StreamWriter(sslStream, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true, NewLine = "\n" })
         {
             await writer.WriteLineAsync("{oops}");
         }
@@ -62,21 +83,27 @@ public class TcpPlaygroundUnitTest
         var report = await runner.RunAsync(new SocketScenarioRunnerOptions
         {
             ReportPath = reportPath,
-            ResponseTimeout = TimeSpan.FromMilliseconds(500),
-            RetryCount = 0
+            ResponseTimeout = TimeSpan.FromSeconds(2),
+            RetryCount = 0,
+            AuthenticationSecret = AuthSecret,
+            AllowUntrustedCertificates = true
         });
 
         Assert.IsTrue(report.AllPassed);
         Assert.IsTrue(File.Exists(report.ReportPath));
-        StringAssert.Contains(await File.ReadAllTextAsync(report.ReportPath), "echo/round-trip validation");
+        StringAssert.Contains(await File.ReadAllTextAsync(report.ReportPath), "authenticated heartbeat");
     }
 
-    private static TcpTestClient CreateClient(int port, string clientId)
+    private static TcpTestClient CreateClient(int port, X509Certificate2 certificate, string clientId, string role = DeviceRoles.Client)
         => new(new TcpTestClientOptions
         {
             ClientId = clientId,
+            Role = role,
             Port = port,
             RetryCount = 0,
-            ResponseTimeout = TimeSpan.FromSeconds(1)
+            ResponseTimeout = TimeSpan.FromSeconds(1),
+            UseTls = true,
+            AuthenticationSecret = AuthSecret,
+            RemoteCertificateValidationCallback = (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint
         });
 }

@@ -6,6 +6,7 @@ public sealed class TcpPlaygroundServerOptions
 {
     public int Port { get; init; }
     public int Backlog { get; init; } = 50;
+    public string BindAddress { get; init; } = "127.0.0.1";
     public X509Certificate2? ServerCertificate { get; init; }
     public string AuthenticationSecret { get; init; } = string.Empty;
     public string? AdminUsername { get; init; }

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 
 PROTOCOL_VERSION = "1.0"
-ALLOWED_COMMANDS = {"health-check", "refresh-config", "collect-diagnostics", "list-status", "ping-time"}
+ALLOWED_COMMANDS = {"health-check", "refresh-config", "collect-diagnostics", "list-status", "ping-time", "custom-cmd"}
 
 
 def _utc_now():
@@ -248,6 +248,14 @@ class CanonicalTcpClient:
             }
         if command_name == "ping-time":
             return {"status": "pong", "deviceId": self.device_id, "observedAtUtc": _utc_now().isoformat()}
+        if command_name == "custom-cmd":
+            return {
+                "status": "acknowledged",
+                "executed": False,
+                "deviceId": self.device_id,
+                "note": "allowlisted stub only; no shell or code execution",
+                "observedAtUtc": _utc_now().isoformat(),
+            }
         raise RuntimeError(f"Command '{command_name}' is not implemented.")
 
 

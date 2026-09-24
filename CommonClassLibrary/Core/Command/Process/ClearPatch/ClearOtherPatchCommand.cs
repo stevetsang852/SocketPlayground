@@ -1,12 +1,7 @@
-﻿using CommonClassLibrary;
+using CommonClassLibrary;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace Payload.Core.Command
 {
@@ -14,27 +9,28 @@ namespace Payload.Core.Command
     {
         public override Task Execute()
         {
-            DirectoryInfo workingDir = new DirectoryInfo(Config.Instance.WorkSpaceDir);
-            DirectoryInfo parentDir = workingDir.Parent;
-            if (parentDir.FullName.Equals(new DirectoryInfo(Config.Instance.TargetUpgradeDir).FullName) || true)
+            var workingDir = new DirectoryInfo(Config.Instance.WorkSpaceDir);
+            var parentDir = workingDir.Parent;
+            if (parentDir is null)
             {
-                DirectoryInfo[] allPatchDir = parentDir.GetDirectories();
-                foreach (DirectoryInfo _dir in allPatchDir)
-                {
-                    if (_dir.FullName.Equals(workingDir.FullName) || 
-                        (!_dir.FullName.EndsWith("patch")&&!_dir.FullName.Equals(Config.Instance.TargetWorkSpaceDir)) )
-                        continue;
-                    try
-                    {
-                        _dir.Delete(true);
-                    }
-                    catch (Exception e)
-                    {
-                        throw e;
-                    }
-                }
+                return null!;
             }
-            return null;
+
+            var upgradeRoot = new DirectoryInfo(Config.Instance.TargetUpgradeDir).FullName;
+
+            // P4: the previous `|| true` made this guard always succeed and could delete
+            // unrelated siblings. Only run retention when we are actually under TargetUpgradeDir.
+            if (!string.Equals(parentDir.FullName, upgradeRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                return null!;
+            }
+
+            PatchRetention.Apply(
+                upgradeRoot,
+                protectFullPath: workingDir.FullName,
+                keepCount: Config.Instance.PatchRetentionCount);
+
+            return null!;
         }
     }
 }

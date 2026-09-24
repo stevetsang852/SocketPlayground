@@ -232,4 +232,269 @@ public sealed class CanonicalLegacyBridgeTests
         Assert.AreEqual("rejected", JsonSerializer.SerializeToElement(client.Execute("not-real")).GetProperty("status").GetString());
         Assert.AreEqual("rejected", JsonSerializer.SerializeToElement(client.Execute("csharp")).GetProperty("status").GetString());
     }
+
+    [TestMethod]
+    [TestCategory("PayloadCanonical")]
+    public void UploadHandlerRejectsMissingFileContent()
+    {
+        var bridge = new LegacyCommandBridge();
+        var tempDir = Path.Combine(Path.GetTempPath(), "socket-playground-upload-missing-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var args = JsonSerializer.SerializeToElement(new
+            {
+                data = new
+                {
+                    name = "missing.txt",
+                    action = "upload",
+                    path = tempDir
+                    // no file / fileBase64
+                }
+            });
+
+            var result = JsonSerializer.SerializeToElement(bridge.HandleUpload(args));
+            Assert.AreEqual("rejected", result.GetProperty("status").GetString());
+            Assert.AreEqual("no file content provided", result.GetProperty("reason").GetString());
+            Assert.IsFalse(File.Exists(Path.Combine(tempDir, "missing.txt")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("PayloadCanonical")]
+    public void UploadHandlerAcceptsExplicitEmptyContentAsZeroByteFile()
+    {
+        var bridge = new LegacyCommandBridge();
+        var tempDir = Path.Combine(Path.GetTempPath(), "socket-playground-upload-empty-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var args = JsonSerializer.SerializeToElement(new
+            {
+                data = new
+                {
+                    name = "empty.txt",
+                    action = "upload",
+                    path = tempDir,
+                    fileBase64 = ""
+                }
+            });
+
+            var result = JsonSerializer.SerializeToElement(bridge.HandleUpload(args));
+            Assert.AreEqual("saved", result.GetProperty("status").GetString());
+            var dest = Path.Combine(tempDir, "empty.txt");
+            Assert.IsTrue(File.Exists(dest));
+            Assert.AreEqual(0, new FileInfo(dest).Length);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("PayloadCanonical")]
+    public void UploadHandlerRejectsInvalidBase64()
+    {
+        var bridge = new LegacyCommandBridge();
+        var args = JsonSerializer.SerializeToElement(new
+        {
+            data = new
+            {
+                name = "bad.txt",
+                action = "upload",
+                path = Path.GetTempPath(),
+                fileBase64 = "!!!not-base64!!!"
+            }
+        });
+
+        var result = JsonSerializer.SerializeToElement(bridge.HandleUpload(args));
+        Assert.AreEqual("rejected", result.GetProperty("status").GetString());
+        StringAssert.Contains(result.GetProperty("reason").GetString(), "invalid fileBase64");
+    }
+
+    [TestMethod]
+    [TestCategory("PayloadCanonical")]
+    public void UploadHandlePathUsesUniqueMillisecondDirs()
+    {
+        var bridge = new LegacyCommandBridge();
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < 5; i++)
+        {
+            var args = JsonSerializer.SerializeToElement(new
+            {
+                data = new
+                {
+                    name = $"notes-{i}.txt",
+                    action = "upgrade",
+                    path = "/ignored",
+                    fileBase64 = Convert.ToBase64String(Encoding.UTF8.GetBytes($"v{i}"))
+                }
+            });
+            var result = JsonSerializer.SerializeToElement(bridge.HandleUpload(args));
+            Assert.AreEqual("saved", result.GetProperty("status").GetString());
+            var path = result.GetProperty("path").GetString();
+            Assert.IsFalse(string.IsNullOrWhiteSpace(path));
+            Assert.IsTrue(path!.Contains("_patch", StringComparison.Ordinal));
+            Assert.IsTrue(paths.Add(path!), $"collision on path {path}");
+            // Cleanup per-request dir
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+    }
+
+    [TestMethod]
+    [TestCategory("PayloadCanonical")]
+    public void UploadZipWithZeroExesDoesNotAttemptLaunch()
+    {
+        var bridge = new LegacyCommandBridge();
+        var zipBytes = CreateZipWithEntries(("only.txt", Encoding.UTF8.GetBytes("no-exe")));
+        var args = JsonSerializer.SerializeToElement(new
+        {
+            data = new
+            {
+                name = "zero.exe.zip",
+                action = "upgrade",
+                path = "/ignored",
+                fileBase64 = Convert.ToBase64String(zipBytes)
+            }
+        });
+
+        var result = JsonSerializer.SerializeToElement(bridge.HandleUpload(args));
+        Assert.AreEqual("saved", result.GetProperty("status").GetString());
+        Assert.AreEqual(true, result.GetProperty("patched").GetBoolean());
+        Assert.AreEqual(false, result.GetProperty("exeLaunched").GetBoolean());
+        StringAssert.Contains(result.GetProperty("message").GetString(), "no .exe");
+        var path = result.GetProperty("path").GetString();
+        Assert.IsTrue(Directory.Exists(path));
+        Assert.IsTrue(File.Exists(Path.Combine(path!, "only.txt")));
+        Directory.Delete(path!, recursive: true);
+    }
+
+    [TestMethod]
+    [TestCategory("PayloadCanonical")]
+    public void FileHelperSaveFileReturnsFalseWhenFileBytesMissing()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "socket-playground-fh-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            Assert.IsFalse(FileHelper.SaveFile(new UploadProps
+            {
+                path = tempDir,
+                name = "x.bin",
+                file = null
+            }));
+            Assert.IsFalse(File.Exists(Path.Combine(tempDir, "x.bin")));
+
+            Assert.IsTrue(FileHelper.SaveFile(new UploadProps
+            {
+                path = tempDir,
+                name = "empty.bin",
+                file = Array.Empty<byte>()
+            }));
+            Assert.IsTrue(File.Exists(Path.Combine(tempDir, "empty.bin")));
+            Assert.AreEqual(0, new FileInfo(Path.Combine(tempDir, "empty.bin")).Length);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+
+    [TestMethod]
+    [TestCategory("PayloadCanonical")]
+    public void UploadZipWithMultipleExesSkipsLaunch()
+    {
+        var bridge = new LegacyCommandBridge();
+        var zipBytes = CreateZipWithEntries(
+            ("a.exe", Encoding.UTF8.GetBytes("A")),
+            ("b.exe", Encoding.UTF8.GetBytes("B")));
+        var args = JsonSerializer.SerializeToElement(new
+        {
+            data = new
+            {
+                name = "multi.exe.zip",
+                action = "upgrade",
+                path = "/ignored",
+                fileBase64 = Convert.ToBase64String(zipBytes)
+            }
+        });
+
+        var result = JsonSerializer.SerializeToElement(bridge.HandleUpload(args));
+        Assert.AreEqual("saved", result.GetProperty("status").GetString());
+        Assert.AreEqual(true, result.GetProperty("patched").GetBoolean());
+        Assert.AreEqual(false, result.GetProperty("exeLaunched").GetBoolean());
+        StringAssert.Contains(result.GetProperty("message").GetString(), "skipped auto-launch");
+        var path = result.GetProperty("path").GetString();
+        Assert.IsTrue(Directory.Exists(path));
+        Directory.Delete(path!, recursive: true);
+    }
+
+    [TestMethod]
+    [TestCategory("PayloadCanonical")]
+    public void UploadZipWithSingleExeCleansUpWhenLaunchFails()
+    {
+        // On non-Windows, StartProcess fails (cmd.exe). We assert structured error + residue cleanup.
+        var bridge = new LegacyCommandBridge();
+        var zipBytes = CreateZipWithEntries(
+            ("foo.exe", Encoding.UTF8.GetBytes("MZ-dummy")),
+            ("readme.txt", Encoding.UTF8.GetBytes("hi")));
+        var args = JsonSerializer.SerializeToElement(new
+        {
+            data = new
+            {
+                name = "single.exe.zip",
+                action = "upgrade",
+                path = "/ignored",
+                fileBase64 = Convert.ToBase64String(zipBytes)
+            }
+        });
+
+        var result = JsonSerializer.SerializeToElement(bridge.HandleUpload(args));
+        if (OperatingSystem.IsWindows())
+        {
+            // Launch may succeed or fail depending on the dummy; do not assert OS-specific launch.
+            Assert.IsTrue(result.TryGetProperty("status", out _));
+            return;
+        }
+
+        Assert.AreEqual("error", result.GetProperty("status").GetString());
+        StringAssert.Contains(result.GetProperty("message").GetString(), "failed to launch patch executable");
+        Assert.AreEqual(true, result.GetProperty("cleanedUp").GetBoolean());
+        var path = result.GetProperty("path").GetString();
+        Assert.IsFalse(Directory.Exists(path), "per-request patch dir should be cleaned after launch failure");
+    }
+
+    private static byte[] CreateZipWithEntries(params (string name, byte[] content)[] entries)
+    {
+        using var ms = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var (name, content) in entries)
+            {
+                var entry = zip.CreateEntry(name);
+                using var stream = entry.Open();
+                stream.Write(content, 0, content.Length);
+            }
+        }
+
+        return ms.ToArray();
+    }
 }

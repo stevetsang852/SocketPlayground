@@ -105,10 +105,16 @@ public sealed class CanonicalTcpClient : IDisposable
                 {
                     var json = JsonSerializer.SerializeToElement(obj);
                     if (json.ValueKind == JsonValueKind.Object
-                        && json.TryGetProperty("status", out var status)
-                        && string.Equals(status.GetString(), "rejected", StringComparison.OrdinalIgnoreCase))
+                        && json.TryGetProperty("status", out var status))
                     {
-                        success = false;
+                        var statusValue = status.GetString();
+                        // "rejected" and structured "error" both mean the command did not succeed.
+                        // csharp keeps status "executed" so its success semantics are unchanged.
+                        if (string.Equals(statusValue, "rejected", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(statusValue, "error", StringComparison.OrdinalIgnoreCase))
+                        {
+                            success = false;
+                        }
                     }
                 }
             }

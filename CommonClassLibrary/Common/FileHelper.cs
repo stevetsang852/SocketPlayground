@@ -14,6 +14,12 @@ namespace CommonClassLibrary
     {
         public static bool SaveFile(UploadProps props)
         {
+            // Missing content is not a successful save. Explicit empty byte[] is allowed (0-byte file).
+            if (props.file is null)
+            {
+                return false;
+            }
+
             try
             {
                 string savePath = string.IsNullOrEmpty(props.path)
@@ -23,13 +29,12 @@ namespace CommonClassLibrary
                 if (!Directory.Exists(savePath))
                     Directory.CreateDirectory(savePath);
                 string patchPath = Path.Combine(savePath, props.name ?? "upload.bin");
-                BytesHelper.ByteArrayToFile(patchPath, props.file);
+                return BytesHelper.ByteArrayToFile(patchPath, props.file);
             }
             catch
             {
                 return false;
             }
-            return true;
         }
     }
 }

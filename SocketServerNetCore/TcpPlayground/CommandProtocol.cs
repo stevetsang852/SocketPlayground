@@ -12,7 +12,8 @@ public static class CommandProtocol
     public const string ServerDeviceId = "server";
     public const string ServerRole = "server";
 
-    public static readonly IReadOnlySet<string> AllowedCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    /// <summary>Always-available playground commands (safe by design).</summary>
+    public static readonly IReadOnlySet<string> SafeCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         "health-check",
         "refresh-config",
@@ -21,6 +22,37 @@ public static class CommandProtocol
         "ping-time",
         "custom-cmd"
     };
+
+    /// <summary>
+    /// High-risk legacy Socket.IO capabilities. Only included when the server
+    /// is started with <c>--allow-legacy-commands true</c> (default off).
+    /// </summary>
+    public static readonly IReadOnlySet<string> LegacyCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "csharp",
+        "upload",
+        "wallpapertaskpack"
+    };
+
+    /// <summary>
+    /// All known command names (safe + legacy). Prefer <see cref="GetAllowedCommands"/> for runtime gating.
+    /// </summary>
+    public static readonly IReadOnlySet<string> AllowedCommands = new HashSet<string>(
+        SafeCommands.Concat(LegacyCommands),
+        StringComparer.OrdinalIgnoreCase);
+
+    public static IReadOnlySet<string> GetAllowedCommands(bool allowLegacyCommands)
+    {
+        if (!allowLegacyCommands)
+        {
+            return SafeCommands;
+        }
+
+        return AllowedCommands;
+    }
+
+    public static bool IsLegacyCommand(string? commandName)
+        => !string.IsNullOrWhiteSpace(commandName) && LegacyCommands.Contains(commandName);
 
     public static bool IsKnownRole(string? role)
         => role is DeviceRoles.Admin or DeviceRoles.Client;

@@ -16,4 +16,9 @@ public sealed class TcpPlaygroundServerOptions
     public TimeSpan AuthenticationTimeout { get; init; } = TimeSpan.FromSeconds(5);
     public TimeSpan DefaultCommandTimeout { get; init; } = TimeSpan.FromSeconds(2);
     public DuplicateSessionPolicy DuplicateSessionPolicy { get; init; } = DuplicateSessionPolicy.RejectNew;
+    /// <summary>
+    /// When true, allow csharp/upload/wallpapertaskpack. Default false (safe).
+    /// </summary>
+    public bool AllowLegacyCommands { get; init; }
 }
+

@@ -21,11 +21,13 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
     private Task? _acceptLoop;
     public TcpPlaygroundServer(TcpPlaygroundServerOptions options) { _options = options; }
     public int Port { get; private set; }
+    public IReadOnlySet<string> EffectiveAllowedCommands => CommandProtocol.GetAllowedCommands(_options.AllowLegacyCommands);
+    public bool AllowLegacyCommands => _options.AllowLegacyCommands;
     public IReadOnlyList<AuthenticatedDeviceInfo> GetAuthenticatedDevices()
         => _authenticatedConnections.Values.Where(c => c.IsAuthenticated).Select(c => new AuthenticatedDeviceInfo(c.DeviceId, c.Role, c.LastHeartbeatUtc, c.AuthenticatedUntilUtc)).OrderBy(d => d.DeviceId, StringComparer.OrdinalIgnoreCase).ToArray();
-    public Task DispatchConsoleCommandAsync(string commandName, string targetMode = "all", IEnumerable<string>? targetDeviceIds = null, int? timeoutMs = null, CancellationToken cancellationToken = default)
+    public Task DispatchConsoleCommandAsync(string commandName, string targetMode = "all", IEnumerable<string>? targetDeviceIds = null, int? timeoutMs = null, JsonElement? arguments = null, CancellationToken cancellationToken = default)
     {
-        var envelope = SocketEnvelope.Create("admin-command", CommandProtocol.ServerDeviceId, new AdminCommandRequest { CommandId = Guid.NewGuid().ToString("N"), CommandName = commandName, TargetMode = targetMode, TargetDeviceIds = targetDeviceIds?.ToArray(), TimeoutMs = timeoutMs }, role: DeviceRoles.Admin);
+        var envelope = SocketEnvelope.Create("admin-command", CommandProtocol.ServerDeviceId, new AdminCommandRequest { CommandId = Guid.NewGuid().ToString("N"), CommandName = commandName, Arguments = arguments, TargetMode = targetMode, TargetDeviceIds = targetDeviceIds?.ToArray(), TimeoutMs = timeoutMs }, role: DeviceRoles.Admin);
         return HandleAdminCommandAsync(CreateConsoleAdminConnection(), envelope, cancellationToken);
     }
     private ServerClientConnection CreateConsoleAdminConnection() => new(new TcpClient()) { DeviceId = CommandProtocol.ServerDeviceId, Role = DeviceRoles.Admin, IsAuthenticated = true, AuthenticatedUntilUtc = DateTimeOffset.MaxValue, IsConsoleAdmin = true };
@@ -189,7 +191,7 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             return false;
         }
         LogAudit("auth.accepted", $"Device '{connection.DeviceId}' authenticated as {connection.Role} until {connection.AuthenticatedUntilUtc:O}.");
-        await connection.SendAsync(SocketEnvelope.Create("authenticated", CommandProtocol.ServerDeviceId, new { deviceId = connection.DeviceId, role = connection.Role, duplicatePolicy = _options.DuplicateSessionPolicy.ToString(), authenticatedUntilUtc = connection.AuthenticatedUntilUtc, protocolVersion = CommandProtocol.ProtocolVersion, commandAllowlist = CommandProtocol.AllowedCommands.OrderBy(c => c).ToArray() }, envelope.RequestId, CommandProtocol.ServerRole), CancellationToken.None);
+        await connection.SendAsync(SocketEnvelope.Create("authenticated", CommandProtocol.ServerDeviceId, new { deviceId = connection.DeviceId, role = connection.Role, duplicatePolicy = _options.DuplicateSessionPolicy.ToString(), authenticatedUntilUtc = connection.AuthenticatedUntilUtc, protocolVersion = CommandProtocol.ProtocolVersion, commandAllowlist = EffectiveAllowedCommands.OrderBy(c => c).ToArray() }, envelope.RequestId, CommandProtocol.ServerRole), CancellationToken.None);
         return true;
     }
     private async Task<bool> CompleteLoginAsync(ServerClientConnection connection, SocketEnvelope envelope, CancellationToken cancellationToken)
@@ -221,7 +223,7 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             return false;
         }
         LogAudit("login.accepted", $"Device '{connection.DeviceId}' logged in as {connection.Role} until {connection.AuthenticatedUntilUtc:O}.");
-        await connection.SendAsync(SocketEnvelope.Create("authenticated", CommandProtocol.ServerDeviceId, new { deviceId = connection.DeviceId, role = connection.Role, method = "login", duplicatePolicy = _options.DuplicateSessionPolicy.ToString(), authenticatedUntilUtc = connection.AuthenticatedUntilUtc, protocolVersion = CommandProtocol.ProtocolVersion, commandAllowlist = CommandProtocol.AllowedCommands.OrderBy(c => c).ToArray() }, envelope.RequestId, CommandProtocol.ServerRole), cancellationToken);
+        await connection.SendAsync(SocketEnvelope.Create("authenticated", CommandProtocol.ServerDeviceId, new { deviceId = connection.DeviceId, role = connection.Role, method = "login", duplicatePolicy = _options.DuplicateSessionPolicy.ToString(), authenticatedUntilUtc = connection.AuthenticatedUntilUtc, protocolVersion = CommandProtocol.ProtocolVersion, commandAllowlist = EffectiveAllowedCommands.OrderBy(c => c).ToArray() }, envelope.RequestId, CommandProtocol.ServerRole), cancellationToken);
         return true;
     }
     private bool TryRegisterAuthenticatedConnection(ServerClientConnection connection, out string? error)
@@ -319,9 +321,12 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         var request = envelope.DeserializePayload<AdminCommandRequest>();
         if (request is null) { await SendErrorAsync(connection, "command_invalid", "Admin command payload is required.", null, cancellationToken, envelope.RequestId); return; }
         var commandName = request.CommandName?.Trim();
-        if (!CommandProtocol.AllowedCommands.Contains(commandName ?? string.Empty))
+        if (!EffectiveAllowedCommands.Contains(commandName ?? string.Empty))
         {
-            await SendErrorAsync(connection, "command_not_allowed", $"Command '{commandName}' is not allowlisted.", null, cancellationToken, envelope.RequestId);
+            var detail = CommandProtocol.IsLegacyCommand(commandName) && !_options.AllowLegacyCommands
+                ? "Legacy high-risk commands are disabled. Start the server with --allow-legacy-commands true (or set SOCKET_PLAYGROUND_ALLOW_LEGACY_COMMANDS=true)."
+                : null;
+            await SendErrorAsync(connection, "command_not_allowed", $"Command '{commandName}' is not allowlisted.", detail, cancellationToken, envelope.RequestId);
             return;
         }
         var targets = ResolveTargets(connection, request);

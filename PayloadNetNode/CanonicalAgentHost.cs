@@ -1,5 +1,9 @@
 namespace Payload;
 
+/// <summary>
+/// Canonical TLS agent host selected by Program.cs when --canonical is present.
+/// Connects to SocketServerNetCore; legacy handlers run only if the server allowlist includes them.
+/// </summary>
 public static class CanonicalAgentHost
 {
     public static async Task<int> RunAsync(string[] args)
@@ -13,7 +17,10 @@ public static class CanonicalAgentHost
         using var client = new CanonicalTcpClient(host, port, deviceId, "client");
         var authenticated = await client.ConnectAndLoginAsync(user, password);
         Console.WriteLine(authenticated);
-        Console.WriteLine("Canonical TLS agent connected. Waiting for allowlisted commands. Ctrl+C to exit.");
+        var legacyEnabled = LegacyCommandBridge.LegacyCommandNames.All(client.AllowedCommandNames.Contains);
+        Console.WriteLine(legacyEnabled
+            ? "Canonical TLS agent connected. Legacy bridge ENABLED by server (csharp, upload, wallpapertaskpack). Ctrl+C to exit."
+            : "Canonical TLS agent connected. Legacy bridge OFF on server (safe allowlist only). Ctrl+C to exit.");
         await client.ProcessCommandsAsync();
         return 0;
     }

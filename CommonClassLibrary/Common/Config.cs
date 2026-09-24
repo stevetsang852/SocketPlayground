@@ -68,8 +68,12 @@ namespace CommonClassLibrary
         public string TargetWorkSpaceDir, TargetUpgradeDir, TargetDllPath;
         public string ExeFullName, ExeName;
         public int MainSleepInterval = 5 * 1000;
-        /// <summary>Max ms to WaitForExit after launching a process via StartProcessCommand. Default 60s.</summary>
-        public int StartProcessWaitTimeoutMs = 60 * 1000;
+        /// <summary>
+        /// Max ms to WaitForExit after launching via StartProcessCommand.
+        /// Default 0 = legacy unbounded WaitForExit (never kill). Positive = bounded wait only;
+        /// on timeout the process is left running.
+        /// </summary>
+        public int StartProcessWaitTimeoutMs = 0;
         /// <summary>When true (default), StartProcessCommand uses Verb=runas (current Windows happy-path).</summary>
         public bool StartProcessUseRunAs = true;
         /// <summary>How many *_patch directories under TargetUpgradeDir to retain (ClearOtherPatch). Default 5.</summary>

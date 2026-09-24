@@ -38,4 +38,12 @@ public sealed class StartProcessLaunchInfoTests
         var psi = StartProcessCommand.BuildStartInfo(@"C:\other", full, useRunAs: true);
         StringAssert.Contains(psi.Arguments, full);
     }
+
+    [TestMethod]
+    [TestCategory("AutoUpgrade")]
+    public void StartProcessWaitTimeoutMs_DefaultsToUnbounded()
+    {
+        // Review follow-up: default 0 restores legacy infinite WaitForExit (no kill).
+        Assert.AreEqual(0, CommonClassLibrary.Config.Instance.StartProcessWaitTimeoutMs);
+    }
 }

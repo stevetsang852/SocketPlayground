@@ -12,7 +12,8 @@ public sealed class PatchRetentionTests
     {
         Assert.IsTrue(PatchRetention.IsPatchDirectoryName("2026_01_01_00_00_00_patch"));
         Assert.IsTrue(PatchRetention.IsPatchDirectoryName("foo_patch"));
-        Assert.IsTrue(PatchRetention.IsPatchDirectoryName("somethingpatch"));
+        Assert.IsFalse(PatchRetention.IsPatchDirectoryName("somethingpatch")); // needs underscore
+        Assert.IsFalse(PatchRetention.IsPatchDirectoryName("dispatch"));
         Assert.IsFalse(PatchRetention.IsPatchDirectoryName("2026_01_01_exe"));
         Assert.IsFalse(PatchRetention.IsPatchDirectoryName("Graphics"));
     }

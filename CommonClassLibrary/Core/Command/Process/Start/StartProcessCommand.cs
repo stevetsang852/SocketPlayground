@@ -32,6 +32,7 @@ namespace Payload.Core.Command
 
             var psi = new ProcessStartInfo
             {
+                // Note: CreateNoWindow has no effect when UseShellExecute is true (pre-existing).
                 CreateNoWindow = true,
                 FileName = "cmd.exe",
                 UseShellExecute = true,
@@ -73,19 +74,17 @@ namespace Payload.Core.Command
                 var timeoutMs = Config.Instance.StartProcessWaitTimeoutMs;
                 if (timeoutMs <= 0)
                 {
-                    // Explicit non-positive timeout keeps legacy unbounded wait (escape hatch).
+                    // Default / legacy: block until the process exits; never kill.
                     process.WaitForExit();
                 }
                 else if (!process.WaitForExit(timeoutMs))
                 {
-                    try { process.Kill(entireProcessTree: true); } catch { /* best-effort */ }
-                    throw new TimeoutException(
-                        $"StartProcessCommand timed out after {timeoutMs}ms waiting for '{exeName}'.");
+                    // Bounded wait only: do NOT kill a long-running installer.
+                    // Leave the process alive and return after logging.
+                    Console.WriteLine(
+                        $"[StartProcessCommand] timed out waiting after {timeoutMs}ms for '{exeName}' " +
+                        $"(pid={SafePid(process)}); process left running.");
                 }
-            }
-            catch (TimeoutException)
-            {
-                throw;
             }
             catch (PlatformNotSupportedException)
             {
@@ -99,6 +98,12 @@ namespace Payload.Core.Command
             }
 
             return null;
+        }
+
+        private static string SafePid(Process process)
+        {
+            try { return process.Id.ToString(); }
+            catch { return "?"; }
         }
     }
 }

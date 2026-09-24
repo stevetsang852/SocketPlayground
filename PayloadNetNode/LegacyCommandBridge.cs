@@ -90,6 +90,9 @@ public sealed class LegacyCommandBridge
         }
 
         // P1: optional integrity check before save/extract/launch.
+        // IMPORTANT: sha256 travels in the same upload message as the bytes, so this only
+        // detects corruption/truncation — NOT a malicious sender. Tamper-resistance requires
+        // signed upgrade manifests (future P0), not this field alone.
         var checksum = props.sha256;
         if (!string.IsNullOrWhiteSpace(checksum))
         {

@@ -18,8 +18,9 @@ namespace CommonClassLibrary
                 return false;
             }
 
-            // Matches legacy "...patch" and current "..._patch" HandlePath naming.
-            return name.EndsWith("patch", StringComparison.OrdinalIgnoreCase);
+            // Require "_patch" suffix (legacy yyyy_MM_dd_HH_mm_ss_patch and current
+            // yyyy_MM_dd_HH_mm_ss_fff_<hex>_patch). Avoids matching unrelated names like "dispatch".
+            return name.EndsWith("_patch", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

@@ -51,13 +51,15 @@ public sealed class UploadChecksumTests
         try
         {
             var bytes = Encoding.UTF8.GetBytes("tampered-or-wrong");
+            // Use action=upload + path=tempDir so a successful save WOULD write here;
+            // mismatch must reject before SaveFile, leaving tempDir empty.
             var args = JsonSerializer.SerializeToElement(new
             {
                 data = new
                 {
-                    name = "patch.zip",
-                    action = "upgrade",
-                    path = "/ignored",
+                    name = "note.txt",
+                    action = "upload",
+                    path = tempDir,
                     fileBase64 = Convert.ToBase64String(bytes),
                     sha256 = new string('0', 64)
                 }
@@ -66,9 +68,8 @@ public sealed class UploadChecksumTests
             var result = JsonSerializer.SerializeToElement(bridge.HandleUpload(args));
             Assert.AreEqual("rejected", result.GetProperty("status").GetString());
             StringAssert.Contains(result.GetProperty("reason").GetString(), "sha256 mismatch");
-            // HandlePath would have created a unique TargetUpgrade subdir only after checksum —
-            // ensure no file written under tempDir either.
             Assert.AreEqual(0, Directory.GetFiles(tempDir, "*", SearchOption.AllDirectories).Length);
+            Assert.IsFalse(File.Exists(Path.Combine(tempDir, "note.txt")));
         }
         finally
         {

@@ -68,6 +68,10 @@ namespace CommonClassLibrary
         public string TargetWorkSpaceDir, TargetUpgradeDir, TargetDllPath;
         public string ExeFullName, ExeName;
         public int MainSleepInterval = 5 * 1000;
+        /// <summary>Max ms to WaitForExit after launching a process via StartProcessCommand. Default 60s.</summary>
+        public int StartProcessWaitTimeoutMs = 60 * 1000;
+        /// <summary>When true (default), StartProcessCommand uses Verb=runas (current Windows happy-path).</summary>
+        public bool StartProcessUseRunAs = true;
         public EnumAppMode AppMode = Config.IsDebug() ? EnumAppMode.DEBUG : EnumAppMode.JACK;
         #endregion
 

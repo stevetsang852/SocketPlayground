@@ -244,11 +244,13 @@ public sealed class LegacyCommandBridge
             };
         }
 
-        var exeName = allFiles[0].Name;
+        var exeFullPath = allFiles[0].FullName;
         try
         {
+            // Pass full path + extracted dir so StartProcessCommand can set WorkingDirectory
+            // and invoke cmd.exe /C "<fullpath>" (P2 launch hardening).
             new StartProcessFactory(
-                    new StartProcessCommandProps { ExeName = exeName, TargetWorkSpaceDir = props.path })
+                    new StartProcessCommandProps { ExeName = exeFullPath, TargetWorkSpaceDir = props.path })
                 .CreateCommand()
                 .Execute();
             return new PatchOutcome { Extracted = true, Launched = true };

@@ -43,11 +43,12 @@ static async Task<int> RunServerAsync(CommandLineOptions options, CancellationTo
     await server.StartAsync(cancellationToken);
 
     Console.WriteLine($"TCP playground server listening on 127.0.0.1:{server.Port} with TLS");
-    Console.WriteLine("Press Ctrl+C to stop.");
+    Console.WriteLine("Use the console to list devices and send allowlisted admin commands.");
+    Console.WriteLine("Press Ctrl+C or type quit to stop.");
 
     try
     {
-        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        await ServerConsole.RunAsync(server, cancellationToken);
     }
     catch (OperationCanceledException)
     {
@@ -96,6 +97,9 @@ static int ShowUsage()
     Console.WriteLine("  server       Starts the TLS-protected raw TCP command broker on loopback.");
     Console.WriteLine("  scenario     Runs automated authenticated client scenarios and writes a JSON report.");
     Console.WriteLine("  issue-token  Prints a short-lived HMAC-signed token for a device/role pair.");
+    Console.WriteLine();
+    Console.WriteLine("Server console commands:");
+    Console.WriteLine("  help / list / send <command> [all|<deviceId>] / quit");
     Console.WriteLine();
     Console.WriteLine("Security options:");
     Console.WriteLine("  --tls true                   Enables SslStream over the raw TCP transport (required).");

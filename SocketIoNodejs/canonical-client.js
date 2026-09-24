@@ -4,7 +4,7 @@ const readline = require('readline');
 const tls = require('tls');
 
 const PROTOCOL_VERSION = '1.0';
-const ALLOWED_COMMANDS = new Set(['health-check', 'refresh-config', 'collect-diagnostics', 'list-status', 'ping-time']);
+const ALLOWED_COMMANDS = new Set(['health-check', 'refresh-config', 'collect-diagnostics', 'list-status', 'ping-time', 'custom-cmd']);
 
 function createToken(secret, deviceId, role, lifetimeSeconds = 600) {
   const payload = {
@@ -237,6 +237,16 @@ class CanonicalTcpClient {
 
     if (commandName === 'ping-time') {
       return { status: 'pong', deviceId: this.deviceId, observedAtUtc: new Date().toISOString() };
+    }
+
+    if (commandName === 'custom-cmd') {
+      return {
+        status: 'acknowledged',
+        executed: false,
+        deviceId: this.deviceId,
+        note: 'allowlisted stub only; no shell or code execution',
+        observedAtUtc: new Date().toISOString(),
+      };
     }
 
     throw new Error(`Command '${commandName}' is not implemented.`);

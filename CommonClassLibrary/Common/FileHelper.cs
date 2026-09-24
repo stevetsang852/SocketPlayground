@@ -9,6 +9,8 @@ namespace CommonClassLibrary
         public string? name { get; set; }
         public string? path { get; set; }
         public string? action { get; set; }
+        /// <summary>Optional lowercase/uppercase hex SHA-256 of <see cref="file"/>. When set, verified before apply.</summary>
+        public string? sha256 { get; set; }
     }
     public static class FileHelper
     {

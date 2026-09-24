@@ -89,6 +89,34 @@ public sealed class LegacyCommandBridge
             };
         }
 
+        // P1: optional integrity check before save/extract/launch.
+        var checksum = props.sha256;
+        if (!string.IsNullOrWhiteSpace(checksum))
+        {
+            if (!BytesHelper.TryValidateSha256(props.file, checksum, out var actual))
+            {
+                return new
+                {
+                    status = "rejected",
+                    reason = $"sha256 mismatch: expected {checksum.Trim()}, actual {actual}",
+                    command = "upload",
+                    path = props.path,
+                    name = props.name,
+                    expectedSha256 = checksum.Trim(),
+                    actualSha256 = actual
+                };
+            }
+        }
+        else
+        {
+            var action = (props.action ?? string.Empty).ToLowerInvariant();
+            if (action is "upgrade" or "exe")
+            {
+                Console.WriteLine(
+                    "[upload] WARNING: upgrade/exe payload has no sha256; proceeding unverified.");
+            }
+        }
+
         props = HandlePath(props);
         var saved = FileHelper.SaveFile(props);
         if (!saved)
@@ -362,6 +390,20 @@ public sealed class LegacyCommandBridge
         return null;
     }
 
+
+    private static string? ReadOptionalString(JsonElement payload, string name)
+    {
+        if (payload.ValueKind != JsonValueKind.Object
+            || !payload.TryGetProperty(name, out var value)
+            || value.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var s = value.GetString();
+        return string.IsNullOrWhiteSpace(s) ? null : s;
+    }
+
     private static UploadProps? ReadUploadProps(JsonElement? arguments)
     {
         if (arguments is null)
@@ -398,6 +440,13 @@ public sealed class LegacyCommandBridge
         {
             // Convert.FromBase64String throws FormatException on invalid input — callers catch it.
             props.file = Convert.FromBase64String(b64.GetString() ?? string.Empty);
+        }
+
+        if (string.IsNullOrWhiteSpace(props.sha256))
+        {
+            props.sha256 = ReadOptionalString(payload, "sha256")
+                ?? ReadOptionalString(payload, "fileSha256")
+                ?? ReadOptionalString(payload, "checksum");
         }
 
         return props;

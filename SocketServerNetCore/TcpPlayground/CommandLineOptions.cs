@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace SocketServerNetCore.TcpPlayground;
 
 public enum PlaygroundMode
@@ -15,6 +13,7 @@ public sealed class CommandLineOptions
     public PlaygroundMode Mode { get; init; } = PlaygroundMode.Scenario;
     public int Port { get; init; }
     public int Backlog { get; init; } = 50;
+    public string BindAddress { get; init; } = "127.0.0.1";
     public string ReportPath { get; init; } = Path.Combine("artifacts", "socket-playground-report.json");
     public int ConnectTimeoutMs { get; init; } = 2000;
     public int ResponseTimeoutMs { get; init; } = 2000;
@@ -25,6 +24,10 @@ public sealed class CommandLineOptions
     public string? TlsCertPath { get; init; }
     public string? TlsCertPassword { get; init; }
     public string AuthenticationSecret { get; init; } = string.Empty;
+    public string? AdminUsername { get; init; }
+    public string? AdminPassword { get; init; }
+    public bool RequireClientCertificate { get; init; }
+    public bool RequireValidClientCertificate { get; init; }
     public int AuthenticationTimeoutMs { get; init; } = 5000;
     public int CommandTimeoutMs { get; init; } = 2000;
     public string DuplicatePolicy { get; init; } = "reject-new";
@@ -65,6 +68,9 @@ public sealed class CommandLineOptions
             Mode = mode,
             Port = GetInt(values, "port", 0),
             Backlog = GetInt(values, "backlog", 50),
+            BindAddress = values.TryGetValue("bind", out var bind)
+                ? bind
+                : Environment.GetEnvironmentVariable("SOCKET_PLAYGROUND_BIND") ?? "127.0.0.1",
             ReportPath = values.TryGetValue("report", out var reportPath)
                 ? reportPath
                 : Path.Combine("artifacts", "socket-playground-report.json"),
@@ -79,6 +85,14 @@ public sealed class CommandLineOptions
             AuthenticationSecret = values.TryGetValue("auth-secret", out var authSecret)
                 ? authSecret
                 : Environment.GetEnvironmentVariable("SOCKET_PLAYGROUND_AUTH_SECRET") ?? string.Empty,
+            AdminUsername = values.TryGetValue("admin-user", out var adminUser)
+                ? adminUser
+                : Environment.GetEnvironmentVariable("SOCKET_PLAYGROUND_ADMIN_USER"),
+            AdminPassword = values.TryGetValue("admin-password", out var adminPassword)
+                ? adminPassword
+                : Environment.GetEnvironmentVariable("SOCKET_PLAYGROUND_ADMIN_PASSWORD"),
+            RequireClientCertificate = GetBool(values, "require-client-cert", false),
+            RequireValidClientCertificate = GetBool(values, "require-valid-client-cert", false),
             AuthenticationTimeoutMs = GetInt(values, "auth-timeout-ms", 5000),
             CommandTimeoutMs = GetInt(values, "command-timeout-ms", 2000),
             DuplicatePolicy = values.TryGetValue("duplicate-policy", out var duplicatePolicy)

@@ -1,0 +1,30 @@
+name: docker-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  docker-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build CI image
+        run: docker build -f docker/Dockerfile.ci -t socketplayground-ci .
+
+      - name: Run dotnet, python, and node tests in Docker
+        run: docker run --rm socketplayground-ci
+
+      - name: Build server and client images
+        run: |
+          docker build -f SocketServerNetCore/Dockerfile -t socketplayground-server .
+          docker build -f SocketIoServerPython/Dockerfile -t socketplayground-python .
+          docker build -f SocketIoNodejs/Dockerfile -t socketplayground-node .

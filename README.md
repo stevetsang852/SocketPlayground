@@ -1,72 +1,91 @@
 # SocketPlayground
 
-SocketPlayground now has one **canonical interoperable command-and-control contract** for C#, Python, and Node.js:
+Canonical interoperable command contract for C#, Python, and Node.js:
 
 - transport: **raw TCP**
-- security: **TLS required**
+- security: **TLS required**, with certificate inspection on connect
 - framing: **UTF-8 newline-delimited JSON**
-- auth: **short-lived HMAC-signed token**
+- auth after TLS: **`authenticate` (HMAC token)** or **`login` (username/password + role)**
 
-The existing Node.js and Python **Socket.IO** projects are still kept as learning samples, but they are **not wire-compatible** with the canonical raw TCP/TLS contract.
+The existing Node.js and Python **Socket.IO** projects stay as learning samples. They are **not** wire-compatible with the canonical raw TCP/TLS contract.
+
+## Latest flow
+
+```text
+Python / Node / .NET client
+        |
+        |  1. TCP connect
+        v
+.NET TLS server
+        |
+        |  2. TLS handshake + certificate check/log
+        |     - server cert subject/thumbprint/expiry
+        |     - optional client cert (off by default)
+        v
+Unusable session until auth
+        |
+        |  3a. authenticate { deviceId, accessToken }
+        |  or
+        |  3b. login { deviceId, username, password, role }
+        v
+Authenticated registry
+        |
+        +-- role=client  wait for allowlisted admin-command
+        +-- role=admin   may dispatch allowlisted admin-command
+        |
+        |  4. admin-command -> target clients
+        |  5. command-ack + command-result back to admin
+        |  6. command-summary when complete or timed out
+```
+
+Local server console (interactive TTY only):
+
+```text
+help
+list
+send <command> all|<deviceId>
+quit
+```
+
+CI / redirected stdin does **not** open the console, so the server keeps listening for automated tests.
 
 ## Compatibility boundary
 
-### Canonical interoperable path
-
-These pieces all speak the same contract:
+Canonical path:
 
 - `.NET server` → `SocketServerNetCore`
-- `.NET test/admin/client helpers` → `SocketServerNetCore.Tests` + `SocketServerNetCore/TcpPlayground`
-- `Python canonical client` → `SocketIoServerPython/canonical_client.py`
-- `Node canonical client` → `SocketIoNodejs/canonical-client.js`
+- `.NET tests` → `SocketServerNetCore.Tests`
+- `Python client` → `SocketIoServerPython/canonical_client.py`
+- `Node client` → `SocketIoNodejs/canonical-client.js`
 
-### Retained learning samples
-
-These remain **Socket.IO-only** examples:
+Socket.IO-only samples (not compatible):
 
 - `SocketIoNodejs/index.js`
 - `SocketIoServerPython/server.py`
 - `SocketIoServerPython/app.py`
 
-Do **not** connect the raw TCP/TLS server to the Socket.IO samples directly.
+## Rules
 
-## Architecture
-
-```text
-admin client (authenticated, role=admin)
-    |
-    |  admin-command
-    v
-central TLS raw TCP server
-    |
-    +--> authenticated client device A (role=client)
-    +--> authenticated client device B (role=client)
-    +--> authenticated client device C (role=client)
-```
-
-Rules:
-
-- a connection is unusable until `authenticate` succeeds
-- only authenticated sessions enter the active registry
-- exactly one authenticated session is allowed per stable `deviceId`
-- default duplicate policy is **reject-new**
-- only `admin` clients may send `admin-command`
-- only allowlisted commands are relayable/executable
+- TLS handshake happens before any JSON frame
+- first JSON message must be `authenticate` or `login`
+- after connect, a client session may send `login` again to become `admin` if credentials match
+- only authenticated sessions enter the registry
+- one authenticated session per `deviceId` (default `reject-new`)
+- only `admin` may send `admin-command`
+- only allowlisted commands are relayed
 - clients never execute arbitrary shell strings
 
-## Supported allowlisted commands
+## Allowlisted commands
 
 - `health-check`
 - `refresh-config`
 - `collect-diagnostics`
+- `list-status`
+- `ping-time`
 
-The sample clients map these names to safe in-process handlers only.
-
-## Protocol contract
+## Protocol
 
 Every frame is one JSON object plus `\n`.
-
-### Shared envelope
 
 ```json
 {
@@ -77,114 +96,116 @@ Every frame is one JSON object plus `\n`.
   "role": "client",
   "type": "heartbeat",
   "correlationId": null,
-  "timestampUtc": "2026-09-23T08:39:47.4700000+00:00",
+  "timestampUtc": "2026-09-24T07:00:00.0000000+00:00",
+  "payload": { "sequence": 1 }
+}
+```
+
+`deviceId` is canonical. `clientId` is a compatibility alias.
+
+| Type | Direction | Purpose |
+|---|---|---|
+| `authenticate` | client → server | token auth |
+| `login` | client → server | username/password auth or admin upgrade |
+| `authenticated` | server → client | success, role, expiry, allowlist |
+| `heartbeat` / `heartbeat.ack` | both | keepalive |
+| `admin-command` | admin → server → clients | allowlisted dispatch |
+| `admin-command.accepted` | server → admin | accepted targets + timeout |
+| `command-ack` | client → admin | accepted by target |
+| `command-result` | client → admin | finished |
+| `command-summary` | server → admin | completion / timeout |
+| `error` | server → client | structured rejection |
+
+### Token auth
+
+```json
+{ "type": "authenticate", "payload": { "deviceId": "py-agent-1", "accessToken": "..." } }
+```
+
+### Login auth
+
+```json
+{
+  "type": "login",
   "payload": {
-    "sequence": 1
+    "deviceId": "console-admin-1",
+    "username": "admin",
+    "password": "change-me",
+    "role": "admin"
   }
 }
 ```
 
-`clientId` is kept as a compatibility alias for older playground code; `deviceId` is the canonical identifier.
-
-### Message types
-
-| Type | Direction | Purpose |
-|---|---|---|
-| `authenticate` | client → server | first message only; contains token |
-| `authenticated` | server → client | auth success, role, expiry, allowlist |
-| `heartbeat` | client → server | keepalive / liveness |
-| `heartbeat.ack` | server → client | heartbeat response |
-| `admin-command` | admin → server, then server → clients | allowlisted command dispatch |
-| `admin-command.accepted` | server → admin | accepted targets + timeout |
-| `command-ack` | client → server, then server → admin | command accepted by target |
-| `command-result` | client → server, then server → admin | command finished |
-| `command-summary` | server → admin | aggregated completion/timeout summary |
-| `error` | server → client | structured rejection/error |
-
-### Authentication flow
-
-1. TLS handshake completes
-2. client must send `authenticate` before the auth deadline
-3. server validates:
-   - token signature
-   - expiry
-   - role
-   - `deviceId` match
-4. only then is the session added to the authenticated registry
-
-If auth is absent, malformed, expired, invalid, unauthorized, or duplicated, the server returns `error` and closes the connection.
-
-### Duplicate device policy
-
-Default: `reject-new`
-
-- first authenticated session for a `deviceId` stays active
-- later authenticated session for the same `deviceId` is rejected safely
-
-Optional server setting:
-
-- `replace-existing`
+- `role=admin` requires `--admin-user` / `--admin-password` (or env vars)
+- `role=client` password must match `--auth-secret`
 
 ## Security model
 
 - TLS is required
-- application auth is required
+- application auth is required after TLS
 - tokens are short-lived HMAC-signed blobs for local/dev use
-- **never commit** real secrets or production certificates
-- `--allow-untrusted` is only for local development with self-signed certs
-- no arbitrary shell/PowerShell/bash execution is implemented
-- server validates admin role, target selection, and command allowlist
-- logs are audit-friendly but still educational, not production SIEM logging
+- never commit real secrets or production certificates
+- `--allow-untrusted` is only for local self-signed certs
+- `--require-client-cert true` optionally demands a client certificate
+- no arbitrary shell execution
 
 ## Repository layout
 
 | Path | Purpose |
 |---|---|
-| `SocketServerNetCore/` | canonical TLS raw TCP server, token issuer, scenario runner |
-| `SocketServerNetCore.Tests/` | .NET protocol/integration tests |
-| `SocketIoServerPython/canonical_client.py` | canonical Python raw TCP/TLS client |
-| `SocketIoNodejs/canonical-client.js` | canonical Node raw TCP/TLS client |
+| `SocketServerNetCore/` | TLS raw TCP server, token issuer, scenario runner |
+| `SocketServerNetCore.Tests/` | .NET protocol tests including login + cert checks |
+| `SocketIoServerPython/canonical_client.py` | Python client (`authenticate` or `--login`) |
+| `SocketIoNodejs/canonical-client.js` | Node client (`authenticate` or `--login`) |
+| `docker/` | Docker CI image and helper scripts |
+| `docker-compose.yml` | one server + Python/Node agents + Python admin |
 | `SocketIoServerPython/server.py` | legacy Socket.IO sample |
 | `SocketIoNodejs/index.js` | legacy Socket.IO sample |
 
 ## Setup
 
-Prerequisites:
-
 - .NET SDK 8.x
 - Python 3.12+
-- Node.js 18+ (`20` used in CI)
+- Node.js 20 (CI)
+- Docker (optional CI / matrix)
+
+```bash
+export SOCKET_PLAYGROUND_AUTH_SECRET="change-this-local-dev-secret"
+export SOCKET_PLAYGROUND_ADMIN_USER="admin"
+export SOCKET_PLAYGROUND_ADMIN_PASSWORD="change-me"
+```
 
 ## Build and test
 
-From repo root:
-
 ```bash
-dotnet restore SocketPlayground.sln
-dotnet build SocketPlayground.sln --configuration Release
-dotnet test SocketServerNetCore.Tests/SocketServerNetCore.Tests.csproj --configuration Release
+dotnet test SocketPlayground.sln --configuration Release
 python -m pip install -r SocketIoServerPython/requirements.txt pytest
 python -m pytest SocketIoServerPython/tests -q
 cd SocketIoNodejs && npm ci && npm test
 ```
 
-## Running the canonical server
-
-Set a dev secret first:
+## Run the server
 
 ```bash
-export SOCKET_PLAYGROUND_AUTH_SECRET="change-this-local-dev-secret"
+dotnet run --project SocketServerNetCore -- server \
+  --port 11000 \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
+  --admin-user "$SOCKET_PLAYGROUND_ADMIN_USER" \
+  --admin-password "$SOCKET_PLAYGROUND_ADMIN_PASSWORD"
 ```
 
-Start the server:
+Docker / multi-container bind:
 
 ```bash
-dotnet run --project SocketServerNetCore -- server --port 11000 --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET"
+--bind 0.0.0.0
+# or SOCKET_PLAYGROUND_BIND=0.0.0.0
 ```
 
-The server always uses TLS. If you do not provide `--tls-cert-path`, it generates a loopback development certificate in memory.
+Default bind remains `127.0.0.1`.
 
-## Issuing a token manually
+If no `--tls-cert-path` is given, the server creates a loopback development certificate in memory.
+
+## Issue a token
 
 ```bash
 dotnet run --project SocketServerNetCore -- issue-token \
@@ -193,94 +214,76 @@ dotnet run --project SocketServerNetCore -- issue-token \
   --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET"
 ```
 
-## Running canonical clients
+## Run clients
 
-### Python agent
-
-```bash
-python SocketIoServerPython/canonical_client.py \
-  --port 11000 \
-  --device-id py-agent-1 \
-  --role client \
-  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
-  --allow-untrusted
-```
-
-### Node agent
-
-```bash
-node SocketIoNodejs/canonical-client.js \
-  --port 11000 \
-  --device-id node-agent-1 \
-  --role client \
-  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
-  --allow-untrusted
-```
-
-### Node admin sending a targeted command
-
-```bash
-node SocketIoNodejs/canonical-client.js \
-  --port 11000 \
-  --device-id node-admin-1 \
-  --role admin \
-  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
-  --allow-untrusted \
-  --send-command health-check \
-  --target-mode devices \
-  --target-device-id py-agent-1
-```
-
-### Python admin broadcasting a command
+Python agent with token:
 
 ```bash
 python SocketIoServerPython/canonical_client.py \
-  --port 11000 \
-  --device-id py-admin-1 \
-  --role admin \
-  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" \
-  --allow-untrusted \
-  --send-command collect-diagnostics \
-  --target-mode all
+  --port 11000 --device-id py-agent-1 --role client \
+  --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET" --allow-untrusted
 ```
 
-## Scenario runner
+Python admin with login:
 
 ```bash
-dotnet run --project SocketServerNetCore -- scenario --auth-secret "$SOCKET_PLAYGROUND_AUTH_SECRET"
+python SocketIoServerPython/canonical_client.py \
+  --port 11000 --device-id py-admin-1 --role admin \
+  --allow-untrusted --login \
+  --login-user admin --login-password change-me \
+  --send-command ping-time --target-mode all
 ```
 
-This runs local authenticated integration scenarios and writes a JSON report.
+Node agent with login:
 
-## Testing coverage
+```bash
+node SocketIoNodejs/canonical-client.js \
+  --port 11000 --device-id node-agent-1 --role client \
+  --allow-untrusted --login \
+  --login-user node-agent-1 --login-password "$SOCKET_PLAYGROUND_AUTH_SECRET"
+```
 
-The automated suite now covers:
+## Docker
 
-- unauthenticated rejection
-- invalid token rejection
+All automated suites inside one image:
+
+```bash
+docker build -f docker/Dockerfile.ci -t socketplayground-ci .
+docker run --rm socketplayground-ci
+```
+
+Mixed Python + Node clients against one server:
+
+```bash
+docker compose up --build --abort-on-container-exit python-admin
+```
+
+More detail: `docker/README.md`.
+
+CI workflows:
+
+- `.github/workflows/dotnet.yml` — host runner tests
+- `.github/workflows/docker.yml` — Docker image build + in-container tests
+
+## Coverage
+
+- unauthenticated / invalid token / bad login rejection
+- TLS handshake before login
+- certificate inspection
 - duplicate `deviceId` rejection
 - non-admin command denial
 - allowlist rejection
-- admin broadcast/targeted command relay
-- ACK/result aggregation
-- malformed frame isolation
-- timeout summaries
-- reconnect + command-id dedup guidance
-- Python ↔ .NET interoperability
-- Node ↔ .NET interoperability
-
-## Reconnect, timeout, and dedup guidance
-
-- reconnect is allowed after the prior authenticated session closes
-- command dispatch includes a timeout and produces `command-summary`
-- sample clients keep an in-memory processed `commandId` set and mark repeated execution as `duplicate=true`
-- for real production use, dedup state should be persisted durably per device
+- admin broadcast and targeted relay
+- ACK / result / timeout summary
+- reconnect + command-id dedup
+- Python ↔ .NET and Node ↔ .NET interoperability
+- login-as-admin then `ping-time` / `list-status`
 
 ## Legacy Socket.IO samples
 
-These are still useful for learning Socket.IO patterns:
+```bash
+cd SocketIoNodejs && npm install && npm start
+cd SocketIoServerPython && python -m pip install -r requirements.txt && python server.py
+```
 
-- `cd SocketIoNodejs && npm install && npm start`
-- `cd SocketIoServerPython && python -m pip install -r requirements.txt && python server.py`
-
-Again: they are **not** part of the canonical raw TCP/TLS contract.
+These are **not** part of the canonical raw TCP/TLS contract.

@@ -19,64 +19,21 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
     private CancellationTokenSource? _lifetimeCts;
     private TcpListener? _listener;
     private Task? _acceptLoop;
-
-    public TcpPlaygroundServer(TcpPlaygroundServerOptions options)
-    {
-        _options = options;
-    }
-
+    public TcpPlaygroundServer(TcpPlaygroundServerOptions options) { _options = options; }
     public int Port { get; private set; }
-
     public IReadOnlyList<AuthenticatedDeviceInfo> GetAuthenticatedDevices()
-        => _authenticatedConnections.Values
-            .Where(connection => connection.IsAuthenticated)
-            .Select(connection => new AuthenticatedDeviceInfo(
-                connection.DeviceId,
-                connection.Role,
-                connection.LastHeartbeatUtc,
-                connection.AuthenticatedUntilUtc))
-            .OrderBy(device => device.DeviceId, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-    public Task DispatchConsoleCommandAsync(
-        string commandName,
-        string targetMode = "all",
-        IEnumerable<string>? targetDeviceIds = null,
-        int? timeoutMs = null,
-        CancellationToken cancellationToken = default)
+        => _authenticatedConnections.Values.Where(c => c.IsAuthenticated).Select(c => new AuthenticatedDeviceInfo(c.DeviceId, c.Role, c.LastHeartbeatUtc, c.AuthenticatedUntilUtc)).OrderBy(d => d.DeviceId, StringComparer.OrdinalIgnoreCase).ToArray();
+    public Task DispatchConsoleCommandAsync(string commandName, string targetMode = "all", IEnumerable<string>? targetDeviceIds = null, int? timeoutMs = null, CancellationToken cancellationToken = default)
     {
-        var envelope = SocketEnvelope.Create(
-            type: "admin-command",
-            deviceId: CommandProtocol.ServerDeviceId,
-            payload: new AdminCommandRequest
-            {
-                CommandId = Guid.NewGuid().ToString("N"),
-                CommandName = commandName,
-                TargetMode = targetMode,
-                TargetDeviceIds = targetDeviceIds?.ToArray(),
-                TimeoutMs = timeoutMs
-            },
-            role: DeviceRoles.Admin);
-
+        var envelope = SocketEnvelope.Create("admin-command", CommandProtocol.ServerDeviceId, new AdminCommandRequest { CommandId = Guid.NewGuid().ToString("N"), CommandName = commandName, TargetMode = targetMode, TargetDeviceIds = targetDeviceIds?.ToArray(), TimeoutMs = timeoutMs }, role: DeviceRoles.Admin);
         return HandleAdminCommandAsync(CreateConsoleAdminConnection(), envelope, cancellationToken);
     }
-
-    private ServerClientConnection CreateConsoleAdminConnection()
-        => new(new TcpClient())
-        {
-            DeviceId = CommandProtocol.ServerDeviceId,
-            Role = DeviceRoles.Admin,
-            IsAuthenticated = true,
-            AuthenticatedUntilUtc = DateTimeOffset.MaxValue,
-            IsConsoleAdmin = true
-        };
-
+    private ServerClientConnection CreateConsoleAdminConnection() => new(new TcpClient()) { DeviceId = CommandProtocol.ServerDeviceId, Role = DeviceRoles.Admin, IsAuthenticated = true, AuthenticatedUntilUtc = DateTimeOffset.MaxValue, IsConsoleAdmin = true };
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_listener is not null) throw new InvalidOperationException("The server is already running.");
         if (_options.ServerCertificate is null) throw new InvalidOperationException("TLS server certificate is required.");
         if (string.IsNullOrWhiteSpace(_options.AuthenticationSecret)) throw new InvalidOperationException("Authentication secret is required.");
-
         _lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _listener = new TcpListener(IPAddress.Loopback, _options.Port);
         _listener.Start(_options.Backlog);
@@ -85,7 +42,6 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         _acceptLoop = AcceptLoopAsync(_lifetimeCts.Token);
         await Task.Yield();
     }
-
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         if (_listener is null) return;
@@ -94,19 +50,11 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         foreach (var pending in _pendingCommands.Values) pending.Dispose();
         foreach (var connection in _connections.Values) connection.Dispose();
         if (_acceptLoop is not null) await AwaitAndIgnoreSocketShutdownAsync(_acceptLoop);
-        Task[] tasks;
-        lock (_taskLock) { tasks = _connectionTasks.ToArray(); }
+        Task[] tasks; lock (_taskLock) { tasks = _connectionTasks.ToArray(); }
         await Task.WhenAll(tasks.Select(AwaitAndIgnoreSocketShutdownAsync));
-        _connections.Clear();
-        _authenticatedConnections.Clear();
-        _pendingCommands.Clear();
-        _acceptLoop = null;
-        _listener = null;
-        _lifetimeCts?.Dispose();
-        _lifetimeCts = null;
-        Port = 0;
+        _connections.Clear(); _authenticatedConnections.Clear(); _pendingCommands.Clear();
+        _acceptLoop = null; _listener = null; _lifetimeCts?.Dispose(); _lifetimeCts = null; Port = 0;
     }
-
     private async Task AcceptLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested && _listener is not null)
@@ -116,7 +64,6 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             catch (OperationCanceledException) { break; }
             catch (ObjectDisposedException) { break; }
             catch (SocketException) when (cancellationToken.IsCancellationRequested) { break; }
-
             var connection = new ServerClientConnection(client);
             _connections[connection.ConnectionId] = connection;
             var task = HandleClientAsync(connection, cancellationToken);
@@ -124,7 +71,6 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             _ = task.ContinueWith(_ => { lock (_taskLock) { _connectionTasks.Remove(task); } }, TaskScheduler.Default);
         }
     }
-
     private async Task HandleClientAsync(ServerClientConnection connection, CancellationToken cancellationToken)
     {
         using var stream = await OpenStreamAsync(connection.Client, cancellationToken);
@@ -162,7 +108,6 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             LogAudit("connection.closed", $"Connection {connection.ConnectionId} for device '{connection.DeviceIdOrConnectionId}' closed.");
         }
     }
-
     private async Task<bool> AuthenticateConnectionAsync(ServerClientConnection connection, StreamReader reader, CancellationToken cancellationToken)
     {
         using var authTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -180,9 +125,11 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             await SendErrorAsync(connection, "malformed_frame", "Malformed JSON line rejected.", error, CancellationToken.None);
             return false;
         }
-        if (!string.Equals(envelope!.Type, "authenticate", StringComparison.Ordinal))
+        if (string.Equals(envelope!.Type, "login", StringComparison.Ordinal))
+            return await CompleteLoginAsync(connection, envelope, CancellationToken.None);
+        if (!string.Equals(envelope.Type, "authenticate", StringComparison.Ordinal))
         {
-            await SendErrorAsync(connection, "auth_required", "The first message must be authenticate.", null, CancellationToken.None);
+            await SendErrorAsync(connection, "auth_required", "The first message must be authenticate or login.", null, CancellationToken.None);
             return false;
         }
         var authenticateRequest = envelope.DeserializePayload<AuthenticateRequest>();
@@ -211,15 +158,41 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             return false;
         }
         LogAudit("auth.accepted", $"Device '{connection.DeviceId}' authenticated as {connection.Role} until {connection.AuthenticatedUntilUtc:O}.");
-        await connection.SendAsync(SocketEnvelope.Create(
-            type: "authenticated",
-            deviceId: CommandProtocol.ServerDeviceId,
-            payload: new { deviceId = connection.DeviceId, role = connection.Role, duplicatePolicy = _options.DuplicateSessionPolicy.ToString(), authenticatedUntilUtc = connection.AuthenticatedUntilUtc, protocolVersion = CommandProtocol.ProtocolVersion, commandAllowlist = CommandProtocol.AllowedCommands.OrderBy(command => command).ToArray() },
-            requestId: envelope.RequestId,
-            role: CommandProtocol.ServerRole), CancellationToken.None);
+        await connection.SendAsync(SocketEnvelope.Create("authenticated", CommandProtocol.ServerDeviceId, new { deviceId = connection.DeviceId, role = connection.Role, duplicatePolicy = _options.DuplicateSessionPolicy.ToString(), authenticatedUntilUtc = connection.AuthenticatedUntilUtc, protocolVersion = CommandProtocol.ProtocolVersion, commandAllowlist = CommandProtocol.AllowedCommands.OrderBy(c => c).ToArray() }, envelope.RequestId, CommandProtocol.ServerRole), CancellationToken.None);
         return true;
     }
-
+    private async Task<bool> CompleteLoginAsync(ServerClientConnection connection, SocketEnvelope envelope, CancellationToken cancellationToken)
+    {
+        var request = envelope.DeserializePayload<LoginRequest>();
+        if (request is null)
+        {
+            await SendErrorAsync(connection, "login_invalid", "Login payload is required.", null, cancellationToken, envelope.RequestId);
+            return false;
+        }
+        if (!LoginService.TryAuthenticate(request, _options.AuthenticationSecret, _options.AdminUsername, _options.AdminPassword, out var deviceId, out var role, out var error))
+        {
+            await SendErrorAsync(connection, "login_invalid", "Login failed.", error, cancellationToken, envelope.RequestId);
+            return false;
+        }
+        var wasAuthenticated = connection.IsAuthenticated;
+        if (wasAuthenticated && !string.Equals(connection.DeviceId, deviceId, StringComparison.OrdinalIgnoreCase))
+        {
+            await SendErrorAsync(connection, "login_invalid", "Login deviceId does not match the current session.", null, cancellationToken, envelope.RequestId);
+            return false;
+        }
+        connection.DeviceId = deviceId;
+        connection.Role = role;
+        connection.AuthenticatedUntilUtc = DateTimeOffset.UtcNow.AddHours(1);
+        connection.IsAuthenticated = true;
+        if (!wasAuthenticated && !TryRegisterAuthenticatedConnection(connection, out var duplicateError))
+        {
+            await SendErrorAsync(connection, "duplicate_device", duplicateError ?? "Duplicate device rejected.", null, cancellationToken, envelope.RequestId);
+            return false;
+        }
+        LogAudit("login.accepted", $"Device '{connection.DeviceId}' logged in as {connection.Role} until {connection.AuthenticatedUntilUtc:O}.");
+        await connection.SendAsync(SocketEnvelope.Create("authenticated", CommandProtocol.ServerDeviceId, new { deviceId = connection.DeviceId, role = connection.Role, method = "login", duplicatePolicy = _options.DuplicateSessionPolicy.ToString(), authenticatedUntilUtc = connection.AuthenticatedUntilUtc, protocolVersion = CommandProtocol.ProtocolVersion, commandAllowlist = CommandProtocol.AllowedCommands.OrderBy(c => c).ToArray() }, envelope.RequestId, CommandProtocol.ServerRole), cancellationToken);
+        return true;
+    }
     private bool TryRegisterAuthenticatedConnection(ServerClientConnection connection, out string? error)
     {
         error = null;
@@ -246,38 +219,50 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             return false;
         }
     }
-
     private void RemoveAuthenticatedConnection(ServerClientConnection connection)
     {
         if (!connection.IsAuthenticated || string.IsNullOrWhiteSpace(connection.DeviceId)) return;
         if (_authenticatedConnections.TryGetValue(connection.DeviceId, out var current) && ReferenceEquals(current, connection))
             _authenticatedConnections.TryRemove(connection.DeviceId, out _);
     }
-
     private async Task<Stream> OpenStreamAsync(TcpClient client, CancellationToken cancellationToken)
     {
         var stream = client.GetStream();
-        var sslStream = new SslStream(stream, leaveInnerStreamOpen: false);
-        await sslStream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+        var sslStream = new SslStream(stream, leaveInnerStreamOpen: false, userCertificateValidationCallback: (_, certificate, chain, errors) =>
         {
-            ServerCertificate = _options.ServerCertificate,
-            ClientCertificateRequired = false,
-            EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
-            CertificateRevocationCheckMode = X509RevocationMode.NoCheck
-        }, cancellationToken);
+            var inspection = CertificateInspector.Inspect(certificate);
+            if (!inspection.HasCertificate)
+            {
+                LogAudit("tls.client-cert", "No client certificate presented.");
+                if (_options.RequireClientCertificate) { LogAudit("tls.reject", "Client certificate is required."); return false; }
+                return true;
+            }
+            LogAudit("tls.client-cert", $"subject={inspection.Subject}; thumbprint={inspection.Thumbprint}; expires={inspection.NotAfterUtc:O}");
+            if (!CertificateInspector.TryValidateServerCertificate(certificate, chain, errors, !_options.RequireValidClientCertificate, out var error))
+            {
+                LogAudit("tls.reject", error ?? "Client certificate rejected.");
+                return false;
+            }
+            return true;
+        });
+        await sslStream.AuthenticateAsServerAsync(new SslServerAuthenticationOptions { ServerCertificate = _options.ServerCertificate, ClientCertificateRequired = _options.RequireClientCertificate, EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13, CertificateRevocationCheckMode = X509RevocationMode.NoCheck }, cancellationToken);
+        var serverCert = CertificateInspector.Inspect(_options.ServerCertificate);
+        LogAudit("tls.accepted", $"Server certificate thumbprint={serverCert.Thumbprint}; subject={serverCert.Subject}.");
         return sslStream;
     }
-
     private async Task HandleMessageAsync(ServerClientConnection connection, SocketEnvelope envelope, CancellationToken cancellationToken)
     {
         switch (envelope.Type)
         {
             case "heartbeat":
                 connection.LastHeartbeatUtc = DateTimeOffset.UtcNow;
-                await connection.SendAsync(SocketEnvelope.Create(type: "heartbeat.ack", deviceId: CommandProtocol.ServerDeviceId, payload: new { deviceId = connection.DeviceId, receivedAtUtc = DateTimeOffset.UtcNow }, requestId: envelope.RequestId, role: CommandProtocol.ServerRole), cancellationToken);
+                await connection.SendAsync(SocketEnvelope.Create("heartbeat.ack", CommandProtocol.ServerDeviceId, new { deviceId = connection.DeviceId, receivedAtUtc = DateTimeOffset.UtcNow }, envelope.RequestId, CommandProtocol.ServerRole), cancellationToken);
                 break;
             case "echo":
-                await connection.SendAsync(SocketEnvelope.Create(type: "echo.response", deviceId: connection.DeviceId, payload: envelope.Payload, requestId: envelope.RequestId, role: connection.Role), cancellationToken);
+                await connection.SendAsync(SocketEnvelope.Create("echo.response", connection.DeviceId, envelope.Payload, envelope.RequestId, connection.Role), cancellationToken);
+                break;
+            case "login":
+                await CompleteLoginAsync(connection, envelope, cancellationToken);
                 break;
             case "admin-command":
                 await HandleAdminCommandAsync(connection, envelope, cancellationToken);
@@ -293,7 +278,6 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
                 break;
         }
     }
-
     private async Task HandleAdminCommandAsync(ServerClientConnection connection, SocketEnvelope envelope, CancellationToken cancellationToken)
     {
         if (!string.Equals(connection.Role, DeviceRoles.Admin, StringComparison.Ordinal))
@@ -302,11 +286,7 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             return;
         }
         var request = envelope.DeserializePayload<AdminCommandRequest>();
-        if (request is null)
-        {
-            await SendErrorAsync(connection, "command_invalid", "Admin command payload is required.", null, cancellationToken, envelope.RequestId);
-            return;
-        }
+        if (request is null) { await SendErrorAsync(connection, "command_invalid", "Admin command payload is required.", null, cancellationToken, envelope.RequestId); return; }
         var commandName = request.CommandName?.Trim();
         if (!CommandProtocol.AllowedCommands.Contains(commandName ?? string.Empty))
         {
@@ -320,34 +300,29 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             return;
         }
         var commandId = string.IsNullOrWhiteSpace(request.CommandId) ? Guid.NewGuid().ToString("N") : request.CommandId;
-        var timeoutMs = request.TimeoutMs.GetValueOrDefault((int)_options.DefaultCommandTimeout.TotalMilliseconds);
-        timeoutMs = Math.Clamp(timeoutMs, 250, 30000);
-        var pending = new PendingCommandState(commandId, envelope.RequestId, commandName!, connection, targets.Select(target => target.DeviceId), timeoutMs);
+        var timeoutMs = Math.Clamp(request.TimeoutMs.GetValueOrDefault((int)_options.DefaultCommandTimeout.TotalMilliseconds), 250, 30000);
+        var pending = new PendingCommandState(commandId, envelope.RequestId, commandName!, connection, targets.Select(t => t.DeviceId), timeoutMs);
         if (!_pendingCommands.TryAdd(commandId, pending))
         {
             await SendErrorAsync(connection, "command_duplicate", $"A command with id '{commandId}' is already active.", null, cancellationToken, envelope.RequestId);
             pending.Dispose();
             return;
         }
-        LogAudit("command.accepted", $"Admin '{connection.DeviceId}' dispatched '{commandName}' to [{string.Join(", ", targets.Select(target => target.DeviceId))}] with commandId '{commandId}'.");
+        LogAudit("command.accepted", $"Admin '{connection.DeviceId}' dispatched '{commandName}' to [{string.Join(", ", targets.Select(t => t.DeviceId))}] with commandId '{commandId}'.");
         _ = MonitorPendingCommandTimeoutAsync(pending);
-        await connection.SendAsync(SocketEnvelope.Create(type: "admin-command.accepted", deviceId: CommandProtocol.ServerDeviceId, payload: new { commandId, commandName, targetDeviceIds = targets.Select(target => target.DeviceId).ToArray(), timeoutMs }, requestId: envelope.RequestId, role: CommandProtocol.ServerRole, correlationId: commandId), cancellationToken);
+        await connection.SendAsync(SocketEnvelope.Create("admin-command.accepted", CommandProtocol.ServerDeviceId, new { commandId, commandName, targetDeviceIds = targets.Select(t => t.DeviceId).ToArray(), timeoutMs }, envelope.RequestId, CommandProtocol.ServerRole, commandId), cancellationToken);
         foreach (var target in targets)
-        {
-            await target.SendAsync(SocketEnvelope.Create(type: "admin-command", deviceId: connection.DeviceId, payload: new { commandId, commandName, arguments = request.Arguments, issuedByDeviceId = connection.DeviceId, timeoutMs }, role: connection.Role, correlationId: commandId), cancellationToken);
-        }
+            await target.SendAsync(SocketEnvelope.Create("admin-command", connection.DeviceId, new { commandId, commandName, arguments = request.Arguments, issuedByDeviceId = connection.DeviceId, timeoutMs }, role: connection.Role, correlationId: commandId), cancellationToken);
     }
-
     private IReadOnlyList<ServerClientConnection> ResolveTargets(ServerClientConnection adminConnection, AdminCommandRequest request)
     {
         if (string.Equals(request.TargetMode, "devices", StringComparison.OrdinalIgnoreCase))
         {
-            var requestedDeviceIds = request.TargetDeviceIds?.Where(deviceId => !string.IsNullOrWhiteSpace(deviceId)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? Array.Empty<string>();
-            return requestedDeviceIds.Select(deviceId => _authenticatedConnections.TryGetValue(deviceId, out var connection) ? connection : null).Where(connection => connection is not null && !string.Equals(connection.Role, DeviceRoles.Admin, StringComparison.Ordinal) && !ReferenceEquals(connection, adminConnection)).Cast<ServerClientConnection>().ToArray();
+            var ids = request.TargetDeviceIds?.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() ?? Array.Empty<string>();
+            return ids.Select(id => _authenticatedConnections.TryGetValue(id, out var c) ? c : null).Where(c => c is not null && !string.Equals(c.Role, DeviceRoles.Admin, StringComparison.Ordinal) && !ReferenceEquals(c, adminConnection)).Cast<ServerClientConnection>().ToArray();
         }
-        return _authenticatedConnections.Values.Where(connection => !ReferenceEquals(connection, adminConnection) && string.Equals(connection.Role, DeviceRoles.Client, StringComparison.Ordinal)).OrderBy(connection => connection.DeviceId, StringComparer.OrdinalIgnoreCase).ToArray();
+        return _authenticatedConnections.Values.Where(c => !ReferenceEquals(c, adminConnection) && string.Equals(c.Role, DeviceRoles.Client, StringComparison.Ordinal)).OrderBy(c => c.DeviceId, StringComparer.OrdinalIgnoreCase).ToArray();
     }
-
     private async Task HandleCommandAckAsync(ServerClientConnection connection, SocketEnvelope envelope, CancellationToken cancellationToken)
     {
         var payload = envelope.DeserializePayload<CommandAckPayload>();
@@ -359,9 +334,8 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         }
         if (!pending.TryRecordAck(connection.DeviceId)) return;
         LogAudit("command.ack", $"Device '{connection.DeviceId}' acknowledged command '{commandId}'.");
-        await NotifyAdminAsync(pending, SocketEnvelope.Create(type: "command-ack", deviceId: connection.DeviceId, payload: new { commandId, commandName = pending.CommandName, status = payload?.Status ?? "accepted", duplicate = payload?.Duplicate ?? false }, role: connection.Role, correlationId: commandId), cancellationToken);
+        await NotifyAdminAsync(pending, SocketEnvelope.Create("command-ack", connection.DeviceId, new { commandId, commandName = pending.CommandName, status = payload?.Status ?? "accepted", duplicate = payload?.Duplicate ?? false }, role: connection.Role, correlationId: commandId), cancellationToken);
     }
-
     private async Task HandleCommandResultAsync(ServerClientConnection connection, SocketEnvelope envelope, CancellationToken cancellationToken)
     {
         var payload = envelope.DeserializePayload<CommandResultPayload>();
@@ -373,66 +347,44 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         }
         if (!pending.TryRecordResult(connection.DeviceId)) return;
         LogAudit("command.result", $"Device '{connection.DeviceId}' completed command '{commandId}' with status '{payload?.Status ?? "completed"}'.");
-        await NotifyAdminAsync(pending, SocketEnvelope.Create(type: "command-result", deviceId: connection.DeviceId, payload: new { commandId, commandName = pending.CommandName, status = payload?.Status ?? "completed", success = payload?.Success ?? true, duplicate = payload?.Duplicate ?? false, result = payload?.Result }, role: connection.Role, correlationId: commandId), cancellationToken);
-        if (pending.IsComplete) await FinalizePendingCommandAsync(commandId, timedOut: false, cancellationToken);
+        await NotifyAdminAsync(pending, SocketEnvelope.Create("command-result", connection.DeviceId, new { commandId, commandName = pending.CommandName, status = payload?.Status ?? "completed", success = payload?.Success ?? true, duplicate = payload?.Duplicate ?? false, result = payload?.Result }, role: connection.Role, correlationId: commandId), cancellationToken);
+        if (pending.IsComplete) await FinalizePendingCommandAsync(commandId, false, cancellationToken);
     }
-
     private async Task MonitorPendingCommandTimeoutAsync(PendingCommandState pending)
     {
-        try
-        {
-            await Task.Delay(pending.Timeout, pending.Cancellation.Token);
-            if (!pending.Cancellation.IsCancellationRequested) await FinalizePendingCommandAsync(pending.CommandId, timedOut: true, CancellationToken.None);
-        }
+        try { await Task.Delay(pending.Timeout, pending.Cancellation.Token); if (!pending.Cancellation.IsCancellationRequested) await FinalizePendingCommandAsync(pending.CommandId, true, CancellationToken.None); }
         catch (OperationCanceledException) { }
     }
-
     private async Task FinalizePendingCommandAsync(string commandId, bool timedOut, CancellationToken cancellationToken)
     {
         if (!_pendingCommands.TryRemove(commandId, out var pending)) return;
         pending.Cancellation.Cancel();
         var summary = pending.CreateSummary(timedOut);
         LogAudit("command.summary", $"Command '{commandId}' summary => completed [{string.Join(", ", summary.CompletedDeviceIds)}], timed out [{string.Join(", ", summary.TimedOutDeviceIds)}].");
-        await NotifyAdminAsync(pending, SocketEnvelope.Create(type: "command-summary", deviceId: CommandProtocol.ServerDeviceId, payload: summary, requestId: pending.RequestId, role: CommandProtocol.ServerRole, correlationId: commandId), cancellationToken);
+        await NotifyAdminAsync(pending, SocketEnvelope.Create("command-summary", CommandProtocol.ServerDeviceId, summary, pending.RequestId, CommandProtocol.ServerRole, commandId), cancellationToken);
         pending.Dispose();
     }
-
     private async Task NotifyAdminAsync(PendingCommandState pending, SocketEnvelope envelope, CancellationToken cancellationToken)
     {
-        if (pending.AdminConnection.IsConsoleAdmin)
-        {
-            Console.WriteLine(JsonLineSocketProtocol.Serialize(envelope));
-            return;
-        }
+        if (pending.AdminConnection.IsConsoleAdmin) { Console.WriteLine(JsonLineSocketProtocol.Serialize(envelope)); return; }
         await pending.AdminConnection.SendAsync(envelope, cancellationToken);
     }
-
     private async Task SendErrorAsync(ServerClientConnection connection, string code, string message, string? detail, CancellationToken cancellationToken, string? requestId = null)
     {
         LogAudit("error", $"{code}: {message}{(string.IsNullOrWhiteSpace(detail) ? string.Empty : $" ({detail})")}");
-        await connection.SendAsync(SocketEnvelope.Create(type: "error", deviceId: CommandProtocol.ServerDeviceId, payload: new { code, message, detail }, requestId: requestId, role: CommandProtocol.ServerRole), cancellationToken);
+        await connection.SendAsync(SocketEnvelope.Create("error", CommandProtocol.ServerDeviceId, new { code, message, detail }, requestId, CommandProtocol.ServerRole), cancellationToken);
     }
-
     private static void LogAudit(string eventType, string message) => Console.WriteLine($"[{DateTimeOffset.UtcNow:O}] {eventType} {message}");
-
     private static async Task AwaitAndIgnoreSocketShutdownAsync(Task task)
     {
-        try { await task; }
-        catch (OperationCanceledException) { }
-        catch (IOException) { }
-        catch (ObjectDisposedException) { }
-        catch (SocketException) { }
-        catch (AuthenticationException) { }
+        try { await task; } catch (OperationCanceledException) { } catch (IOException) { } catch (ObjectDisposedException) { } catch (SocketException) { } catch (AuthenticationException) { }
     }
-
     public async ValueTask DisposeAsync() => await StopAsync();
-
     private sealed class AuthenticateRequest { public string? DeviceId { get; set; } public string? AccessToken { get; set; } }
     private sealed class AdminCommandRequest { public string? CommandId { get; set; } public string? CommandName { get; set; } public JsonElement? Arguments { get; set; } public string? TargetMode { get; set; } = "all"; public string[]? TargetDeviceIds { get; set; } public int? TimeoutMs { get; set; } }
     private sealed class CommandAckPayload { public string? CommandId { get; set; } public string? Status { get; set; } public bool Duplicate { get; set; } }
     private sealed class CommandResultPayload { public string? CommandId { get; set; } public string? Status { get; set; } public bool Success { get; set; } = true; public bool Duplicate { get; set; } public JsonElement? Result { get; set; } }
     private sealed class CommandSummary { public string CommandId { get; init; } = string.Empty; public string CommandName { get; init; } = string.Empty; public string[] TargetDeviceIds { get; init; } = Array.Empty<string>(); public string[] AcknowledgedDeviceIds { get; init; } = Array.Empty<string>(); public string[] CompletedDeviceIds { get; init; } = Array.Empty<string>(); public string[] TimedOutDeviceIds { get; init; } = Array.Empty<string>(); public int TimeoutMs { get; init; } public bool TimedOut { get; init; } }
-
     private sealed class PendingCommandState : IDisposable
     {
         private readonly object _sync = new();
@@ -459,13 +411,12 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         {
             lock (_sync)
             {
-                var timedOutDeviceIds = timedOut ? _targetDeviceIds.Except(_completedDeviceIds, StringComparer.OrdinalIgnoreCase).OrderBy(deviceId => deviceId, StringComparer.OrdinalIgnoreCase).ToArray() : Array.Empty<string>();
-                return new CommandSummary { CommandId = CommandId, CommandName = CommandName, TargetDeviceIds = _targetDeviceIds.OrderBy(deviceId => deviceId, StringComparer.OrdinalIgnoreCase).ToArray(), AcknowledgedDeviceIds = _acknowledgedDeviceIds.OrderBy(deviceId => deviceId, StringComparer.OrdinalIgnoreCase).ToArray(), CompletedDeviceIds = _completedDeviceIds.OrderBy(deviceId => deviceId, StringComparer.OrdinalIgnoreCase).ToArray(), TimedOutDeviceIds = timedOutDeviceIds, TimeoutMs = TimeoutMs, TimedOut = timedOut };
+                var timedOutDeviceIds = timedOut ? _targetDeviceIds.Except(_completedDeviceIds, StringComparer.OrdinalIgnoreCase).OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray() : Array.Empty<string>();
+                return new CommandSummary { CommandId = CommandId, CommandName = CommandName, TargetDeviceIds = _targetDeviceIds.OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray(), AcknowledgedDeviceIds = _acknowledgedDeviceIds.OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray(), CompletedDeviceIds = _completedDeviceIds.OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray(), TimedOutDeviceIds = timedOutDeviceIds, TimeoutMs = TimeoutMs, TimedOut = timedOut };
             }
         }
         public void Dispose() => Cancellation.Dispose();
     }
-
     private sealed class ServerClientConnection : IDisposable
     {
         private readonly SemaphoreSlim _sendLock = new(1, 1);
@@ -492,10 +443,7 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
             catch (IOException) { } catch (ObjectDisposedException) { }
             finally { _sendLock.Release(); }
         }
-        public void Dispose()
-        {
-            try { Client.Close(); Client.Dispose(); } finally { _sendLock.Dispose(); }
-        }
+        public void Dispose() { try { Client.Close(); Client.Dispose(); } finally { _sendLock.Dispose(); } }
     }
 }
 

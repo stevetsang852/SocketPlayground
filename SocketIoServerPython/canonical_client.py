@@ -47,6 +47,9 @@ class CanonicalTcpClient:
         access_token: str | None = None,
         allow_untrusted_tls: bool = False,
         timeout_seconds: float = 2.0,
+        login_username: str | None = None,
+        login_password: str | None = None,
+        use_login: bool = False,
     ) -> None:
         self.host = host
         self.port = port
@@ -56,6 +59,9 @@ class CanonicalTcpClient:
         self.access_token = access_token
         self.allow_untrusted_tls = allow_untrusted_tls
         self.timeout_seconds = timeout_seconds
+        self.login_username = login_username
+        self.login_password = login_password
+        self.use_login = use_login
         self._socket: ssl.SSLSocket | None = None
         self._reader = None
         self._writer = None
@@ -73,6 +79,8 @@ class CanonicalTcpClient:
         self._socket = context.wrap_socket(raw_socket, server_hostname="localhost")
         self._reader = self._socket.makefile("r", encoding="utf-8", newline="\n")
         self._writer = self._socket.makefile("w", encoding="utf-8", newline="\n")
+        if self.use_login:
+            return self.login(self.login_username or self.device_id, self.login_password or self.auth_secret or "", self.role)
         return self.authenticate()
 
     def close(self) -> None:
@@ -92,6 +100,23 @@ class CanonicalTcpClient:
         response = self.wait_for(lambda envelope: envelope["requestId"] == request_id and envelope["type"] in {"authenticated", "error"})
         if response["type"] == "error":
             raise RuntimeError(response["payload"]["message"])
+        return response
+
+    def login(self, username: str, password: str, role: str | None = None) -> dict:
+        requested_role = role or self.role
+        request_id = self.send_message(
+            "login",
+            {
+                "deviceId": self.device_id,
+                "username": username,
+                "password": password,
+                "role": requested_role,
+            },
+        )
+        response = self.wait_for(lambda envelope: envelope["requestId"] == request_id and envelope["type"] in {"authenticated", "error"})
+        if response["type"] == "error":
+            raise RuntimeError(response["payload"]["message"])
+        self.role = requested_role
         return response
 
     def send_message(
@@ -235,6 +260,9 @@ def _parse_args():
     parser.add_argument("--auth-secret", default=os.getenv("SOCKET_PLAYGROUND_AUTH_SECRET"))
     parser.add_argument("--access-token")
     parser.add_argument("--allow-untrusted", action="store_true")
+    parser.add_argument("--login", action="store_true")
+    parser.add_argument("--login-user")
+    parser.add_argument("--login-password")
     parser.add_argument("--send-command")
     parser.add_argument("--target-mode", choices=["all", "devices"], default="all")
     parser.add_argument("--target-device-id", action="append", default=[])
@@ -253,6 +281,9 @@ def main():
         access_token=args.access_token,
         allow_untrusted_tls=args.allow_untrusted,
         timeout_seconds=max(2.0, args.timeout_ms / 1000),
+        login_username=args.login_user,
+        login_password=args.login_password,
+        use_login=args.login,
     )
 
     try:

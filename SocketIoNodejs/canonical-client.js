@@ -23,7 +23,7 @@ function base64UrlEncode(buffer) {
 }
 
 class CanonicalTcpClient {
-  constructor({ host, port, deviceId, role, authSecret, accessToken, allowUntrustedTls = false, timeoutMs = 2000 }) {
+  constructor({ host, port, deviceId, role, authSecret, accessToken, allowUntrustedTls = false, timeoutMs = 2000, useLogin = false, loginUsername, loginPassword }) {
     this.host = host;
     this.port = port;
     this.deviceId = deviceId;
@@ -32,6 +32,9 @@ class CanonicalTcpClient {
     this.accessToken = accessToken;
     this.allowUntrustedTls = allowUntrustedTls;
     this.timeoutMs = timeoutMs;
+    this.useLogin = useLogin;
+    this.loginUsername = loginUsername;
+    this.loginPassword = loginPassword;
     this.socket = null;
     this.backlog = [];
     this.waiters = [];
@@ -62,6 +65,9 @@ class CanonicalTcpClient {
       this.backlog.push(envelope);
     });
 
+    if (this.useLogin) {
+      return this.login(this.loginUsername || this.deviceId, this.loginPassword || this.authSecret || '', this.role);
+    }
     return this.authenticate();
   }
 
@@ -79,6 +85,21 @@ class CanonicalTcpClient {
     if (response.type === 'error') {
       throw new Error(response.payload.message);
     }
+    return response;
+  }
+
+  async login(username, password, role = this.role) {
+    const requestId = this.sendMessage('login', {
+      deviceId: this.deviceId,
+      username,
+      password,
+      role,
+    });
+    const response = await this.waitFor((envelope) => envelope.requestId === requestId && ['authenticated', 'error'].includes(envelope.type));
+    if (response.type === 'error') {
+      throw new Error(response.payload.message);
+    }
+    this.role = role;
     return response;
   }
 
@@ -271,6 +292,17 @@ function parseArgs(argv) {
       case '--allow-untrusted':
         result.allowUntrustedTls = true;
         break;
+      case '--login':
+        result.useLogin = true;
+        break;
+      case '--login-user':
+        result.loginUsername = value;
+        index += 1;
+        break;
+      case '--login-password':
+        result.loginPassword = value;
+        index += 1;
+        break;
       default:
         break;
     }
@@ -289,6 +321,9 @@ async function main() {
     accessToken: args.accessToken,
     allowUntrustedTls: !!args.allowUntrustedTls,
     timeoutMs: args.timeoutMs || 2000,
+    useLogin: !!args.useLogin,
+    loginUsername: args.loginUsername,
+    loginPassword: args.loginPassword,
   });
 
   try {

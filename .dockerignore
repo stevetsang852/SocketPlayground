@@ -1,0 +1,10 @@
+.git
+.vs
+**/bin/
+**/obj/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+artifacts/
+*.user
+*.suo

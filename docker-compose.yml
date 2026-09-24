@@ -1,0 +1,121 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: SocketServerNetCore/Dockerfile
+    environment:
+      SOCKET_PLAYGROUND_AUTH_SECRET: docker-compose-secret
+      SOCKET_PLAYGROUND_ADMIN_USER: admin
+      SOCKET_PLAYGROUND_ADMIN_PASSWORD: admin-pass
+    command:
+      - server
+      - --port
+      - "11000"
+      - --bind
+      - 0.0.0.0
+      - --auth-secret
+      - docker-compose-secret
+      - --admin-user
+      - admin
+      - --admin-password
+      - admin-pass
+    ports:
+      - "11000:11000"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/11000'"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  python-agent:
+    build:
+      context: .
+      dockerfile: SocketIoServerPython/Dockerfile
+    depends_on:
+      server:
+        condition: service_started
+    command:
+      - python
+      - canonical_client.py
+      - --host
+      - server
+      - --port
+      - "11000"
+      - --device-id
+      - py-agent-docker
+      - --role
+      - client
+      - --auth-secret
+      - docker-compose-secret
+      - --allow-untrusted
+      - --login
+      - --login-user
+      - py-agent-docker
+      - --login-password
+      - docker-compose-secret
+
+  node-agent:
+    build:
+      context: .
+      dockerfile: SocketIoNodejs/Dockerfile
+    depends_on:
+      server:
+        condition: service_started
+    command:
+      - node
+      - canonical-client.js
+      - --host
+      - server
+      - --port
+      - "11000"
+      - --device-id
+      - node-agent-docker
+      - --role
+      - client
+      - --auth-secret
+      - docker-compose-secret
+      - --allow-untrusted
+      - --login
+      - --login-user
+      - node-agent-docker
+      - --login-password
+      - docker-compose-secret
+
+  python-admin:
+    build:
+      context: .
+      dockerfile: SocketIoServerPython/Dockerfile
+    depends_on:
+      python-agent:
+        condition: service_started
+      node-agent:
+        condition: service_started
+    command:
+      - python
+      - canonical_client.py
+      - --host
+      - server
+      - --port
+      - "11000"
+      - --device-id
+      - py-admin-docker
+      - --role
+      - admin
+      - --allow-untrusted
+      - --login
+      - --login-user
+      - admin
+      - --login-password
+      - admin-pass
+      - --send-command
+      - list-status
+      - --target-mode
+      - all
+      - --timeout-ms
+      - "3000"
+
+  ci:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ci
+    profiles: ["ci"]

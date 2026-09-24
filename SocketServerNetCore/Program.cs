@@ -32,7 +32,7 @@ static async Task<int> RunServerAsync(CommandLineOptions options, CancellationTo
     await using var server = new TcpPlaygroundServer(serverOptions);
     await server.StartAsync(cancellationToken);
 
-    Console.WriteLine($"TCP playground server listening on 127.0.0.1:{server.Port} with TLS");
+    Console.WriteLine($"TCP playground server listening on {options.BindAddress}:{server.Port} with TLS");
     if (!string.IsNullOrWhiteSpace(options.AdminUsername))
     {
         Console.WriteLine("Admin login enabled. After TLS connect, send a login command with role=admin.");
@@ -65,6 +65,7 @@ static TcpPlaygroundServerOptions CreateServerOptions(CommandLineOptions options
     {
         Port = options.Port,
         Backlog = options.Backlog,
+        BindAddress = options.BindAddress,
         ServerCertificate = ResolveServerCertificate(options),
         AuthenticationSecret = ResolveAuthenticationSecret(options),
         AdminUsername = options.AdminUsername,
@@ -107,13 +108,7 @@ static int ShowUsage()
     Console.WriteLine("SocketServerNetCore secure raw TCP playground");
     Console.WriteLine();
     Console.WriteLine("Usage:");
-    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000] [--auth-secret <value>] [--admin-user admin] [--admin-password <value>]");
-    Console.WriteLine("  dotnet run --project SocketServerNetCore -- scenario [--report artifacts/socket-playground-report.json] [--auth-secret <value>]");
-    Console.WriteLine("  dotnet run --project SocketServerNetCore -- issue-token --device-id agent-1 --role client --auth-secret <value>");
-    Console.WriteLine();
-    Console.WriteLine("After TLS connect, clients may send either authenticate or login.");
-    Console.WriteLine("login payload: { deviceId, username, password, role }");
-    Console.WriteLine("role=admin requires --admin-user / --admin-password.");
+    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000] [--bind 0.0.0.0] [--auth-secret <value>]");
     return 1;
 }
 

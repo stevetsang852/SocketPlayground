@@ -6,6 +6,8 @@ const path = require('node:path');
 const { CanonicalTcpClient, createToken } = require('./canonical-client');
 
 const AUTH_SECRET = 'node-cross-language-secret';
+const ADMIN_USER = 'admin';
+const ADMIN_PASSWORD = 'admin-pass';
 const repoRoot = path.resolve(__dirname, '..');
 
 function startDotnetServer() {
@@ -20,6 +22,10 @@ function startDotnetServer() {
       '0',
       '--auth-secret',
       AUTH_SECRET,
+      '--admin-user',
+      ADMIN_USER,
+      '--admin-password',
+      ADMIN_PASSWORD,
     ], {
       cwd: repoRoot,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -95,6 +101,61 @@ test('node client interoperates with dotnet server', async () => {
     assert.equal(result.payload.result.status, 'ok');
     assert.deepEqual(summary.payload.completedDeviceIds, ['node-agent']);
     assert.equal(summary.payload.timedOut, false);
+  } finally {
+    admin.close();
+    agent.close();
+    server.kill('SIGTERM');
+  }
+});
+
+test('node client logs in as admin after TLS', async () => {
+  const { server, port } = await startDotnetServer();
+  after(() => {
+    server.kill('SIGTERM');
+  });
+
+  const admin = new CanonicalTcpClient({
+    host: '127.0.0.1',
+    port,
+    deviceId: 'node-login-admin',
+    role: 'admin',
+    allowUntrustedTls: true,
+    useLogin: true,
+    loginUsername: ADMIN_USER,
+    loginPassword: ADMIN_PASSWORD,
+  });
+  const agent = new CanonicalTcpClient({
+    host: '127.0.0.1',
+    port,
+    deviceId: 'node-login-agent',
+    role: 'client',
+    allowUntrustedTls: true,
+    useLogin: true,
+    loginUsername: 'node-login-agent',
+    loginPassword: AUTH_SECRET,
+  });
+
+  try {
+    const authenticatedAdmin = await admin.connect();
+    const authenticatedAgent = await agent.connect();
+    assert.equal(authenticatedAdmin.type, 'authenticated');
+    assert.equal(authenticatedAdmin.payload.role, 'admin');
+    assert.equal(authenticatedAdmin.payload.method, 'login');
+    assert.equal(authenticatedAgent.payload.role, 'client');
+    assert.ok(admin.socket.encrypted);
+
+    const accepted = await admin.sendAdminCommand('ping-time', {
+      commandId: 'node-login-ping',
+      targetMode: 'devices',
+      targetDeviceIds: ['node-login-agent'],
+      timeoutMs: 1000,
+    });
+    assert.equal(accepted.type, 'admin-command.accepted');
+
+    const { resultPayload } = await agent.processNextCommand();
+    assert.equal(resultPayload.result.status, 'pong');
+    const summary = await admin.waitFor((envelope) => envelope.type === 'command-summary' && envelope.correlationId === 'node-login-ping');
+    assert.deepEqual(summary.payload.completedDeviceIds, ['node-login-agent']);
   } finally {
     admin.close();
     agent.close();

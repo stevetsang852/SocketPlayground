@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 
 PROTOCOL_VERSION = "1.0"
-ALLOWED_COMMANDS = {"health-check", "refresh-config", "collect-diagnostics"}
+ALLOWED_COMMANDS = {"health-check", "refresh-config", "collect-diagnostics", "list-status", "ping-time"}
 
 
 def _utc_now():
@@ -145,7 +145,7 @@ class CanonicalTcpClient:
             return self._backlog.pop(0)
         return None
 
-    def read_message(self, timeout_seconds: float | None = None) -> dict:  # type: ignore[override]
+    def read_message(self, timeout_seconds: float | None = None) -> dict:
         queued = self._pop_backlog()
         if queued is not None:
             return queued
@@ -213,6 +213,16 @@ class CanonicalTcpClient:
                 "deviceId": self.device_id,
                 "diagnostics": {"platform": platform.platform(), "pid": os.getpid()},
             }
+        if command_name == "list-status":
+            return {
+                "status": "ready",
+                "deviceId": self.device_id,
+                "role": self.role,
+                "platform": platform.platform(),
+                "observedAtUtc": _utc_now().isoformat(),
+            }
+        if command_name == "ping-time":
+            return {"status": "pong", "deviceId": self.device_id, "observedAtUtc": _utc_now().isoformat()}
         raise RuntimeError(f"Command '{command_name}' is not implemented.")
 
 

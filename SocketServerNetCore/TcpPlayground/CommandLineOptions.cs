@@ -13,6 +13,7 @@ public sealed class CommandLineOptions
     public PlaygroundMode Mode { get; init; } = PlaygroundMode.Scenario;
     public int Port { get; init; }
     public int Backlog { get; init; } = 50;
+    public string BindAddress { get; init; } = "127.0.0.1";
     public string ReportPath { get; init; } = Path.Combine("artifacts", "socket-playground-report.json");
     public int ConnectTimeoutMs { get; init; } = 2000;
     public int ResponseTimeoutMs { get; init; } = 2000;
@@ -67,6 +68,9 @@ public sealed class CommandLineOptions
             Mode = mode,
             Port = GetInt(values, "port", 0),
             Backlog = GetInt(values, "backlog", 50),
+            BindAddress = values.TryGetValue("bind", out var bind)
+                ? bind
+                : Environment.GetEnvironmentVariable("SOCKET_PLAYGROUND_BIND") ?? "127.0.0.1",
             ReportPath = values.TryGetValue("report", out var reportPath)
                 ? reportPath
                 : Path.Combine("artifacts", "socket-playground-report.json"),

@@ -86,7 +86,6 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
 
         return address;
     }
-
     private async Task AcceptLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested && _listener is not null)

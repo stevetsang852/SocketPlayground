@@ -14,6 +14,8 @@ from canonical_client import CanonicalTcpClient, create_token
 
 
 AUTH_SECRET = "python-cross-language-secret"
+ADMIN_USER = "admin"
+ADMIN_PASSWORD = "admin-pass"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -31,6 +33,10 @@ def dotnet_server():
             "0",
             "--auth-secret",
             AUTH_SECRET,
+            "--admin-user",
+            ADMIN_USER,
+            "--admin-password",
+            ADMIN_PASSWORD,
         ],
         cwd=REPO_ROOT,
         stdout=subprocess.PIPE,
@@ -102,3 +108,75 @@ def test_python_client_interoperates_with_dotnet_server(dotnet_server):
     finally:
         admin.close()
         agent.close()
+
+
+def test_python_admin_login_after_tls(dotnet_server):
+    admin = CanonicalTcpClient(
+        "127.0.0.1",
+        dotnet_server,
+        "py-login-admin",
+        "admin",
+        allow_untrusted_tls=True,
+        use_login=True,
+        login_username=ADMIN_USER,
+        login_password=ADMIN_PASSWORD,
+        timeout_seconds=3.0,
+    )
+    agent = CanonicalTcpClient(
+        "127.0.0.1",
+        dotnet_server,
+        "py-login-agent",
+        "client",
+        allow_untrusted_tls=True,
+        use_login=True,
+        login_username="py-login-agent",
+        login_password=AUTH_SECRET,
+        timeout_seconds=3.0,
+    )
+
+    try:
+        authenticated_admin = admin.connect()
+        authenticated_agent = agent.connect()
+        assert authenticated_admin["type"] == "authenticated"
+        assert authenticated_admin["payload"]["role"] == "admin"
+        assert authenticated_admin["payload"]["method"] == "login"
+        assert authenticated_agent["payload"]["role"] == "client"
+
+        accepted = admin.send_admin_command(
+            "ping-time",
+            command_id="python-login-ping",
+            target_mode="devices",
+            target_device_ids=["py-login-agent"],
+            timeout_ms=1000,
+        )
+        assert accepted["type"] == "admin-command.accepted"
+
+        command, result_payload = agent.process_next_command()
+        assert command["payload"]["commandName"] == "ping-time"
+        assert result_payload["result"]["status"] == "pong"
+
+        summary = admin.wait_for(lambda envelope: envelope["type"] == "command-summary" and envelope.get("correlationId") == "python-login-ping")
+        assert summary["payload"]["completedDeviceIds"] == ["py-login-agent"]
+    finally:
+        admin.close()
+        agent.close()
+
+
+def test_python_invalid_admin_login_is_rejected(dotnet_server):
+    admin = CanonicalTcpClient(
+        "127.0.0.1",
+        dotnet_server,
+        "py-bad-admin",
+        "admin",
+        allow_untrusted_tls=True,
+        use_login=True,
+        login_username=ADMIN_USER,
+        login_password="wrong-password",
+        timeout_seconds=3.0,
+    )
+
+    try:
+        with pytest.raises(RuntimeError, match="Login failed"):
+            admin.connect()
+    finally:
+        admin.close()

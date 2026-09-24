@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import os
+import queue
 import re
-import select
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -93,6 +94,33 @@ def _kill_server_tree(process: subprocess.Popen[str]) -> None:
         pass
 
 
+def _start_stdout_reader(process: subprocess.Popen[str]) -> queue.Queue[str | None]:
+    """
+    Dedicated daemon thread that reads lines from process.stdout into a queue.
+
+    Avoids the select()+buffered TextIOWrapper.readline() mismatch (port line can
+    sit in Python's buffer while select sees an empty OS pipe) and avoids a
+    blocking stdout.read() drain after poll() when `dotnet run`'s child still holds
+    the pipe open.
+    """
+    line_queue: queue.Queue[str | None] = queue.Queue()
+    assert process.stdout is not None
+
+    def _reader() -> None:
+        try:
+            for line in process.stdout:
+                line_queue.put(line)
+        except Exception:
+            pass
+        finally:
+            # Sentinel so the readiness loop can stop if the stream ends early.
+            line_queue.put(None)
+
+    thread = threading.Thread(target=_reader, name="dotnet-server-stdout", daemon=True)
+    thread.start()
+    return line_queue
+
+
 @pytest.fixture
 def dotnet_server():
     _ensure_server_built()
@@ -123,31 +151,27 @@ def dotnet_server():
         start_new_session=(os.name != "nt"),
     )
 
-    assert process.stdout is not None
+    line_queue = _start_stdout_reader(process)
     output_lines: list[str] = []
     port = None
     deadline = time.time() + STARTUP_TIMEOUT_S
 
     try:
-        # Readiness is detected by scanning server stdout for the listen address
-        # (not by TCP-connecting to the port). Use select so a quiet compile cannot
-        # block past the deadline inside readline().
+        # Readiness: consume stdout lines from the reader thread until we see the
+        # listen address (scanning stdout — not a TCP port poll).
         while time.time() < deadline:
-            if process.poll() is not None:
-                # Drain any remaining buffered output for the error message.
-                remaining = process.stdout.read()
-                if remaining:
-                    output_lines.append(remaining)
+            remaining = max(0.05, deadline - time.time())
+            try:
+                line = line_queue.get(timeout=min(1.0, remaining))
+            except queue.Empty:
+                if process.poll() is not None and line_queue.empty():
+                    break
+                continue
+
+            if line is None:
+                # stdout stream ended
                 break
 
-            remaining = max(0.0, deadline - time.time())
-            ready, _, _ = select.select([process.stdout], [], [], min(1.0, remaining))
-            if not ready:
-                continue
-
-            line = process.stdout.readline()
-            if not line:
-                continue
             output_lines.append(line)
             match = re.search(r"127\.0\.0\.1:(\d+)", line)
             if match:
@@ -156,6 +180,15 @@ def dotnet_server():
 
         if port is None:
             _kill_server_tree(process)
+            # Drain any remaining queued lines for the error message (non-blocking).
+            while True:
+                try:
+                    extra = line_queue.get_nowait()
+                except queue.Empty:
+                    break
+                if extra is None:
+                    break
+                output_lines.append(extra)
             raise AssertionError(
                 f"Failed to start dotnet server within {STARTUP_TIMEOUT_S:.0f}s.\n"
                 f"{''.join(output_lines)}"

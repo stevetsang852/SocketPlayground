@@ -74,22 +74,66 @@ namespace Payload.Core.Command
             var r = pResults.CompiledAssembly.CreateInstance("myNameSp ace." + classname);
         }
 
+        /// <summary>
+        /// Resolve Roslyn metadata references from the current runtime (Windows/Linux),
+        /// instead of a hardcoded Windows shared-framework path.
+        /// </summary>
+        private static IReadOnlyList<MetadataReference> CreateCompilationReferences()
+        {
+            var references = new List<MetadataReference>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddFile(string? path)
+            {
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path) || !seen.Add(path))
+                {
+                    return;
+                }
+
+                references.Add(MetadataReference.CreateFromFile(path));
+            }
+
+            // Core assemblies via live types (works on any RID).
+            AddFile(typeof(object).Assembly.Location);          // System.Private.CoreLib
+            AddFile(typeof(Console).Assembly.Location);         // System.Console
+            AddFile(typeof(Enumerable).Assembly.Location);      // System.Linq
+            AddFile(typeof(List<>).Assembly.Location);          // System.Collections
+            AddFile(typeof(ValueTask).Assembly.Location);       // System.Private.CoreLib / threading
+            AddFile(typeof(Payload.Core.Command.DemoCommand).Assembly.Location);     // Payload.Core.Command
+
+            // Trusted platform assemblies: pick System.Runtime / netstandard by file name.
+            var tpa = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+            if (!string.IsNullOrEmpty(tpa))
+            {
+                foreach (var path in tpa.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var name = Path.GetFileName(path);
+                    if (name.Equals("System.Runtime.dll", StringComparison.OrdinalIgnoreCase)
+                        || name.Equals("netstandard.dll", StringComparison.OrdinalIgnoreCase)
+                        || name.Equals("System.Runtime.Extensions.dll", StringComparison.OrdinalIgnoreCase))
+                    {
+                        AddFile(path);
+                    }
+                }
+            }
+            else
+            {
+                // Fallback: runtime directory next to System.Private.CoreLib.
+                var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location);
+                if (!string.IsNullOrEmpty(runtimeDir))
+                {
+                    AddFile(Path.Combine(runtimeDir, "System.Runtime.dll"));
+                    AddFile(Path.Combine(runtimeDir, "netstandard.dll"));
+                }
+            }
+
+            return references;
+        }
+
         private (Assembly assembly, string log) CompileCode(string sourceCode)
         {
             var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
-            var references = new[]
-            {
-                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
-                // Add necessary references for .NET 8
-                MetadataReference.CreateFromFile(typeof(System.Runtime.GCSettings).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(System.Threading.Tasks.ValueTask).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(Payload.Core.Command.DemoCommand).Assembly.Location),
-                MetadataReference.CreateFromFile(typeof(System.Threading.Tasks.Task).Assembly.Location), // System.Threading.Tasks
-                MetadataReference.CreateFromFile(typeof(decimal).Assembly.Location), // System.Private.CoreLib
-                //MetadataReference.CreateFromFile(typeof(Microsoft.CSharp.CSharpCodeProvider).Assembly.Location),
-                MetadataReference.CreateFromFile(@"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\8.0.7\System.Runtime.dll"),
-            };
+            var references = CreateCompilationReferences();
 
             CSharpCompilation compilation = CSharpCompilation.Create(
                 "DynamicAssembly",

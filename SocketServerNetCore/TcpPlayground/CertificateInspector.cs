@@ -21,7 +21,7 @@ public static class CertificateInspector
             return new CertificateInspection(false, null, null, null, null, null, false);
         }
 
-        using var cert = certificate as X509Certificate2 ?? new X509Certificate2(certificate);
+        using var cert = new X509Certificate2(certificate.GetRawCertData());
         var notBefore = new DateTimeOffset(cert.NotBefore.ToUniversalTime());
         var notAfter = new DateTimeOffset(cert.NotAfter.ToUniversalTime());
         return new CertificateInspection(

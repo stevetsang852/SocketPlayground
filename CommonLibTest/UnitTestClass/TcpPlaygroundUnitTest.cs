@@ -62,7 +62,7 @@ public class TcpPlaygroundUnitTest
 
         using var badClient = new TcpClient();
         await badClient.ConnectAsync("127.0.0.1", server.Port);
-        using var sslStream = new SslStream(badClient.GetStream(), leaveInnerStreamOpen: false, (_, presentedCertificate, _, _) => presentedCertificate is not null && new X509Certificate2(presentedCertificate).Thumbprint == certificate.Thumbprint);
+        using var sslStream = new SslStream(badClient.GetStream(), leaveInnerStreamOpen: false, (_, presentedCertificate, _, _) => { if (presentedCertificate is null) return false; using var presented = new X509Certificate2(presentedCertificate.GetRawCertData()); return string.Equals(presented.Thumbprint, certificate.Thumbprint, StringComparison.OrdinalIgnoreCase); });
         await sslStream.AuthenticateAsClientAsync("localhost");
         await using (var writer = new StreamWriter(sslStream, new UTF8Encoding(false), leaveOpen: true) { AutoFlush = true, NewLine = "\n" })
         {
@@ -104,6 +104,6 @@ public class TcpPlaygroundUnitTest
             ResponseTimeout = TimeSpan.FromSeconds(1),
             UseTls = true,
             AuthenticationSecret = AuthSecret,
-            RemoteCertificateValidationCallback = (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint
+            RemoteCertificateValidationCallback = (presentedCertificate, _, _) => presentedCertificate is not null && string.Equals(presentedCertificate.Thumbprint, certificate.Thumbprint, StringComparison.OrdinalIgnoreCase)
         });
 }

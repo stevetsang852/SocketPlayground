@@ -35,10 +35,11 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         if (_options.ServerCertificate is null) throw new InvalidOperationException("TLS server certificate is required.");
         if (string.IsNullOrWhiteSpace(_options.AuthenticationSecret)) throw new InvalidOperationException("Authentication secret is required.");
         _lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _listener = new TcpListener(IPAddress.Loopback, _options.Port);
+        var bindAddress = ResolveBindAddress(_options.BindAddress);
+        _listener = new TcpListener(bindAddress, _options.Port);
         _listener.Start(_options.Backlog);
         Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
-        LogAudit("server.started", $"Listening on 127.0.0.1:{Port} with {CommandProtocol.ProtocolVersion}.");
+        LogAudit("server.started", $"Listening on {bindAddress}:{Port} with {CommandProtocol.ProtocolVersion}.");
         _acceptLoop = AcceptLoopAsync(_lifetimeCts.Token);
         await Task.Yield();
     }
@@ -55,6 +56,37 @@ public sealed class TcpPlaygroundServer : IAsyncDisposable
         _connections.Clear(); _authenticatedConnections.Clear(); _pendingCommands.Clear();
         _acceptLoop = null; _listener = null; _lifetimeCts?.Dispose(); _lifetimeCts = null; Port = 0;
     }
+
+    private static IPAddress ResolveBindAddress(string? bindAddress)
+    {
+        if (string.IsNullOrWhiteSpace(bindAddress) || bindAddress is "127.0.0.1" or "localhost")
+        {
+            return IPAddress.Loopback;
+        }
+
+        if (bindAddress is "0.0.0.0" or "*" or "+")
+        {
+            return IPAddress.Any;
+        }
+
+        if (bindAddress is "::" or "::0")
+        {
+            return IPAddress.IPv6Any;
+        }
+
+        if (bindAddress is "::1")
+        {
+            return IPAddress.IPv6Loopback;
+        }
+
+        if (!IPAddress.TryParse(bindAddress, out var address))
+        {
+            throw new InvalidOperationException($"Invalid bind address '{bindAddress}'.");
+        }
+
+        return address;
+    }
+
     private async Task AcceptLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested && _listener is not null)

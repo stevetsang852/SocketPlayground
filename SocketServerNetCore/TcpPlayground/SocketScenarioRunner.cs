@@ -227,14 +227,27 @@ public sealed class SocketScenarioRunner
     }
 
     private static Func<X509Certificate2?, X509Chain?, SslPolicyErrors, bool> CreateCertificateValidationCallback(X509Certificate2 certificate)
-        => (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint;
+    {
+        var expectedThumbprint = certificate.Thumbprint;
+        return (presentedCertificate, _, _) =>
+            presentedCertificate is not null
+            && string.Equals(presentedCertificate.Thumbprint, expectedThumbprint, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static RemoteCertificateValidationCallback CreateRemoteCertificateValidationCallback(X509Certificate2 certificate)
-        => (_, presentedCertificate, chain, sslPolicyErrors)
-            => CreateCertificateValidationCallback(certificate)(
-                presentedCertificate is null ? null : new X509Certificate2(presentedCertificate),
-                chain,
-                sslPolicyErrors);
+    {
+        var expectedThumbprint = certificate.Thumbprint;
+        return (_, presentedCertificate, chain, sslPolicyErrors) =>
+        {
+            if (presentedCertificate is null)
+            {
+                return false;
+            }
+
+            using var presented = new X509Certificate2(presentedCertificate.GetRawCertData());
+            return string.Equals(presented.Thumbprint, expectedThumbprint, StringComparison.OrdinalIgnoreCase);
+        };
+    }
 
     private static async Task SendMalformedMessageAsync(SocketScenarioRunnerOptions options, int port, X509Certificate2 serverCertificate, CancellationToken cancellationToken)
     {

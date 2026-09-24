@@ -57,22 +57,76 @@ public sealed class LegacyCommandBridge
 
     public object HandleUpload(JsonElement? arguments)
     {
-        var props = ReadUploadProps(arguments);
+        UploadProps? props;
+        try
+        {
+            props = ReadUploadProps(arguments);
+        }
+        catch (FormatException)
+        {
+            return new { status = "rejected", reason = "invalid fileBase64 content" };
+        }
+        catch (Exception ex)
+        {
+            return new { status = "rejected", reason = $"failed to parse upload payload: {ex.Message}" };
+        }
+
         if (props is null)
         {
             return new { status = "rejected", reason = "upload payload data is required" };
         }
 
+        // Missing file/content must never be reported as saved. Explicit empty byte[] is OK.
+        if (props.file is null)
+        {
+            return new
+            {
+                status = "rejected",
+                reason = "no file content provided",
+                command = "upload",
+                path = props.path,
+                name = props.name
+            };
+        }
+
         props = HandlePath(props);
         var saved = FileHelper.SaveFile(props);
-        var patched = InstallPatch(props);
+        if (!saved)
+        {
+            return new
+            {
+                status = "rejected",
+                reason = "failed to save upload file",
+                command = "upload",
+                path = props.path,
+                name = props.name
+            };
+        }
+
+        var patch = InstallPatch(props);
+        if (patch.Error is not null)
+        {
+            return new
+            {
+                status = "error",
+                message = patch.Error,
+                command = "upload",
+                path = props.path,
+                name = props.name,
+                patched = false,
+                cleanedUp = patch.CleanedUp
+            };
+        }
+
         return new
         {
-            status = saved ? "saved" : "save-failed",
+            status = "saved",
             command = "upload",
             path = props.path,
             name = props.name,
-            patched
+            patched = patch.Extracted,
+            exeLaunched = patch.Launched,
+            message = patch.Message
         };
     }
 
@@ -135,48 +189,118 @@ public sealed class LegacyCommandBridge
         }
     }
 
-    private static bool InstallPatch(UploadProps props)
+    private sealed class PatchOutcome
     {
-        var patchUnziped = false;
+        public bool Extracted { get; init; }
+        public bool Launched { get; init; }
+        public bool CleanedUp { get; init; }
+        public string? Error { get; init; }
+        public string? Message { get; init; }
+    }
+
+    private static PatchOutcome InstallPatch(UploadProps props)
+    {
         if (props.name is null || props.action is null || props.path is null)
         {
-            return patchUnziped;
+            return new PatchOutcome();
         }
 
         if (!props.name.ToLower().EndsWith("zip")
             || (!props.action.ToLower().Equals("upgrade") && !props.action.ToLower().Equals("exe")))
         {
-            return patchUnziped;
+            return new PatchOutcome();
         }
 
         try
         {
             var patchPath = Path.Combine(props.path, props.name);
             ZipFile.ExtractToDirectory(patchPath, props.path);
-            patchUnziped = true;
+        }
+        catch (Exception ex)
+        {
+            return new PatchOutcome
+            {
+                Message = $"zip extraction failed: {ex.Message}"
+            };
+        }
+
+        var allFiles = new DirectoryInfo(props.path).GetFiles("*.exe");
+        if (allFiles.Length == 0)
+        {
+            // Extraction succeeded; do not attempt launch with an empty ExeName.
+            return new PatchOutcome
+            {
+                Extracted = true,
+                Message = "extracted; no .exe found to launch"
+            };
+        }
+
+        if (allFiles.Length > 1)
+        {
+            return new PatchOutcome
+            {
+                Extracted = true,
+                Message = $"extracted; {allFiles.Length} .exe files found, skipped auto-launch"
+            };
+        }
+
+        var exeName = allFiles[0].Name;
+        try
+        {
+            new StartProcessFactory(
+                    new StartProcessCommandProps { ExeName = exeName, TargetWorkSpaceDir = props.path })
+                .CreateCommand()
+                .Execute();
+            return new PatchOutcome { Extracted = true, Launched = true };
+        }
+        catch (Exception ex)
+        {
+            var cleaned = TryCleanupPatchDir(props.path);
+            return new PatchOutcome
+            {
+                Extracted = true,
+                CleanedUp = cleaned,
+                Error = $"failed to launch patch executable: {ex.Message}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Best-effort delete of the per-request upgrade/exe directory only.
+    /// Refuses to delete anything outside Config.TargetUpgradeDir.
+    /// </summary>
+    private static bool TryCleanupPatchDir(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            var root = Path.GetFullPath(Config.Instance.TargetUpgradeDir)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var full = Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            var prefix = root + Path.DirectorySeparatorChar;
+            if (!full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!Directory.Exists(full))
+            {
+                return false;
+            }
+
+            Directory.Delete(full, recursive: true);
+            return true;
         }
         catch
         {
-            // Preserve legacy silent failure behavior.
+            return false;
         }
-
-        if (!patchUnziped)
-        {
-            return patchUnziped;
-        }
-
-        var exeName = "";
-        var allFiles = new DirectoryInfo(props.path).GetFiles("*.exe");
-        if (allFiles.Length == 1)
-        {
-            exeName = allFiles[0].Name;
-        }
-
-        new StartProcessFactory(
-                new StartProcessCommandProps { ExeName = exeName, TargetWorkSpaceDir = props.path })
-            .CreateCommand()
-            .Execute();
-        return patchUnziped;
     }
 
     private static UploadProps HandlePath(UploadProps props)
@@ -184,9 +308,14 @@ public sealed class LegacyCommandBridge
         var action = (props.action ?? string.Empty).ToLowerInvariant();
         if (action is "upgrade" or "exe")
         {
+            // Millisecond precision + short unique suffix avoids collisions when
+            // successive upgrades land in the same second.
+            var stamp = DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss_fff");
+            var unique = Guid.NewGuid().ToString("N")[..8];
+            var suffix = action == "upgrade" ? "patch" : "exe";
             props.path = Path.Combine(
                 Config.Instance.TargetUpgradeDir,
-                $"{DateTime.Now:yyyy_MM_dd_HH_mm_ss}_{(action == "upgrade" ? "patch" : "exe")}");
+                $"{stamp}_{unique}_{suffix}");
         }
 
         return props;
@@ -265,6 +394,7 @@ public sealed class LegacyCommandBridge
             && payload.TryGetProperty("fileBase64", out var b64)
             && b64.ValueKind == JsonValueKind.String)
         {
+            // Convert.FromBase64String throws FormatException on invalid input — callers catch it.
             props.file = Convert.FromBase64String(b64.GetString() ?? string.Empty);
         }
 

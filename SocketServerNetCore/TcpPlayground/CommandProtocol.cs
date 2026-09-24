@@ -18,7 +18,8 @@ public static class CommandProtocol
         "refresh-config",
         "collect-diagnostics",
         "list-status",
-        "ping-time"
+        "ping-time",
+        "custom-cmd"
     };
 
     public static bool IsKnownRole(string? role)

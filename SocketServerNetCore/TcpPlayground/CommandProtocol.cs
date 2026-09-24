@@ -16,7 +16,9 @@ public static class CommandProtocol
     {
         "health-check",
         "refresh-config",
-        "collect-diagnostics"
+        "collect-diagnostics",
+        "list-status",
+        "ping-time"
     };
 
     public static bool IsKnownRole(string? role)

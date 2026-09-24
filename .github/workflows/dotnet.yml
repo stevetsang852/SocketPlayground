@@ -8,6 +8,7 @@ on:
 jobs:
   dotnet:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
 
@@ -38,6 +39,7 @@ jobs:
 
   python:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
     defaults:
@@ -68,6 +70,7 @@ jobs:
 
   node:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
     defaults:

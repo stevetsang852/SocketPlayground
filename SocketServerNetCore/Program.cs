@@ -43,12 +43,20 @@ static async Task<int> RunServerAsync(CommandLineOptions options, CancellationTo
     await server.StartAsync(cancellationToken);
 
     Console.WriteLine($"TCP playground server listening on 127.0.0.1:{server.Port} with TLS");
-    Console.WriteLine("Use the console to list devices and send allowlisted admin commands.");
-    Console.WriteLine("Press Ctrl+C or type quit to stop.");
 
     try
     {
-        await ServerConsole.RunAsync(server, cancellationToken);
+        if (Console.IsInputRedirected)
+        {
+            Console.WriteLine("Stdin is redirected; interactive console disabled. Press Ctrl+C to stop.");
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+        else
+        {
+            Console.WriteLine("Use the console to list devices and send allowlisted admin commands.");
+            Console.WriteLine("Press Ctrl+C or type quit to stop.");
+            await ServerConsole.RunAsync(server, cancellationToken);
+        }
     }
     catch (OperationCanceledException)
     {

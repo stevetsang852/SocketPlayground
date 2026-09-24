@@ -161,9 +161,20 @@ namespace Payload.Core.Command
             }
         }
 
-        public override Task Execute()
+        public sealed class CSharpExecutionResult
         {
-            string _code = @"
+            public bool Executed { get; init; }
+            public string? ExecutionError { get; init; }
+            public string? StdOut { get; init; }
+        }
+
+        /// <summary>
+        /// Compile and run <see cref="TargetCSharpCode"/>, returning structured success/failure.
+        /// Does not throw for compile errors or snippet exceptions — those are captured in ExecutionError.
+        /// </summary>
+        public CSharpExecutionResult ExecuteWithResult()
+        {
+            string source = @"
         using System;
         using System.Collections.Generic;
         using System.Text;
@@ -173,55 +184,75 @@ namespace Payload.Core.Command
         [assembly: global::System.Runtime.Versioning.TargetFrameworkAttribute("".NETCoreApp,Version=v8.0"", FrameworkDisplayName = "".NET 8.0"")]
         public class HelloWorld
         {
-            public bool SayHello()
-            {
-                bool result = true;
-                try
-                {
-                    " + TargetCSharpCode + @"
-                }
-                catch
-                {
-                    result = false;
-                }
-                
-                Console.WriteLine(""Hello, World!"");
-                return result;
-            }
-        }";
-
-            string code = @"
-        using System;
-
-        public class HelloWorld
-        {
             public void SayHello()
             {
+                " + TargetCSharpCode + @"
                 Console.WriteLine(""Hello, World!"");
             }
         }";
 
             try
             {
-                //ExecuteCSharp(_code);
-                var(assembly, log)  = CompileCode(_code);
-                // Log the compilation result
+                var (assembly, log) = CompileCode(source);
                 Console.WriteLine("Compilation Log:");
                 Console.WriteLine(log);
-                if (assembly != null)
+
+                if (assembly is null)
                 {
-                    var type = assembly.GetType("HelloWorld");
-                    var instance = Activator.CreateInstance(type);
-                    type.GetMethod("SayHello").Invoke(instance, null);
+                    var error = string.IsNullOrWhiteSpace(log) ? "Compilation failed." : log.Trim();
+                    return new CSharpExecutionResult { Executed = false, ExecutionError = error };
                 }
+
+                var type = assembly.GetType("HelloWorld");
+                if (type is null)
+                {
+                    return new CSharpExecutionResult { Executed = false, ExecutionError = "Compiled assembly did not contain HelloWorld." };
+                }
+
+                var instance = Activator.CreateInstance(type);
+                var method = type.GetMethod("SayHello");
+                if (method is null)
+                {
+                    return new CSharpExecutionResult { Executed = false, ExecutionError = "HelloWorld.SayHello not found." };
+                }
+
+                var originalOut = Console.Out;
+                using var captured = new StringWriter();
+                Console.SetOut(captured);
+                try
+                {
+                    method.Invoke(instance, null);
+                }
+                finally
+                {
+                    Console.SetOut(originalOut);
+                }
+
+                var stdOut = captured.ToString();
+                if (!string.IsNullOrEmpty(stdOut))
+                {
+                    Console.Write(stdOut);
+                }
+
+                return new CSharpExecutionResult { Executed = true, ExecutionError = null, StdOut = stdOut };
             }
-            catch(Exception ex)
+            catch (TargetInvocationException ex)
             {
-#if DEBUG
-                Console.WriteLine (ex.ToString());
-#endif
+                var inner = ex.InnerException ?? ex;
+                Console.WriteLine(inner.ToString());
+                return new CSharpExecutionResult { Executed = false, ExecutionError = inner.Message, StdOut = null };
             }
-            return null;
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return new CSharpExecutionResult { Executed = false, ExecutionError = ex.Message, StdOut = null };
+            }
+        }
+
+        public override Task Execute()
+        {
+            ExecuteWithResult();
+            return Task.CompletedTask;
         }
     }
 }

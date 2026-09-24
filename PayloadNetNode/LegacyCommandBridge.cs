@@ -42,8 +42,17 @@ public sealed class LegacyCommandBridge
         }
 
         var cmd = new CSharpExecuteCommand { TargetCSharpCode = code };
-        cmd.Execute();
-        return new { status = "executed", command = "csharp" };
+        var outcome = cmd.ExecuteWithResult();
+        // status remains "executed" for backward compatibility with consumers that only
+        // check status/success; detailed outcome is in executed / executionError.
+        return new
+        {
+            status = "executed",
+            command = "csharp",
+            executed = outcome.Executed,
+            executionError = outcome.ExecutionError,
+            stdOut = outcome.StdOut
+        };
     }
 
     public object HandleUpload(JsonElement? arguments)

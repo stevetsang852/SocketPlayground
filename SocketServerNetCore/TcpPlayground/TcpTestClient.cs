@@ -322,7 +322,12 @@ public sealed class TcpTestClient : IAsyncDisposable
 
     private bool ValidateServerCertificate(object _, X509Certificate? certificate, X509Chain? chain, SslPolicyErrors sslPolicyErrors)
     {
-        var serverCertificate = certificate is null ? null : new X509Certificate2(certificate);
+        // Copy DER bytes instead of wrapping the SslStream handle. On Linux the
+        // X509Certificate2(X509Certificate) constructor can yield an invalid handle
+        // ("m_safeCertContext is an invalid handle") when Thumbprint is read.
+        using var serverCertificate = certificate is null
+            ? null
+            : new X509Certificate2(certificate.GetRawCertData());
         if (_options.RemoteCertificateValidationCallback is not null)
         {
             return _options.RemoteCertificateValidationCallback(serverCertificate, chain, sslPolicyErrors);

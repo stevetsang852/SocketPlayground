@@ -317,14 +317,27 @@ public sealed class TlsTcpPlaygroundIntegrationTests
         });
 
     private static Func<X509Certificate2?, X509Chain?, SslPolicyErrors, bool> MatchCertificate(X509Certificate2 certificate)
-        => (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint;
+    {
+        var expectedThumbprint = certificate.Thumbprint;
+        return (presentedCertificate, _, _) =>
+            presentedCertificate is not null
+            && string.Equals(presentedCertificate.Thumbprint, expectedThumbprint, StringComparison.OrdinalIgnoreCase);
+    }
 
     private static RemoteCertificateValidationCallback MatchCertificateCallback(X509Certificate2 certificate)
-        => (_, presentedCertificate, chain, sslPolicyErrors)
-            => MatchCertificate(certificate)(
-                presentedCertificate is null ? null : new X509Certificate2(presentedCertificate),
-                chain,
-                sslPolicyErrors);
+    {
+        var expectedThumbprint = certificate.Thumbprint;
+        return (_, presentedCertificate, chain, sslPolicyErrors) =>
+        {
+            if (presentedCertificate is null)
+            {
+                return false;
+            }
+
+            using var presented = new X509Certificate2(presentedCertificate.GetRawCertData());
+            return string.Equals(presented.Thumbprint, expectedThumbprint, StringComparison.OrdinalIgnoreCase);
+        };
+    }
 
     private static async Task<string> SendTlsMessageAsync(int port, X509Certificate2 certificate, string payload)
     {

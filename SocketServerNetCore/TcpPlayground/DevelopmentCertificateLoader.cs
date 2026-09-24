@@ -34,11 +34,16 @@ public static class DevelopmentCertificateLoader
         subjectAlternativeNames.AddIpAddress(IPAddress.IPv6Loopback);
         request.CertificateExtensions.Add(subjectAlternativeNames.Build());
 
-        var certificate = request.CreateSelfSigned(
+        using var certificate = request.CreateSelfSigned(
             DateTimeOffset.UtcNow.AddMinutes(-5),
             DateTimeOffset.UtcNow.AddDays(14));
 
-        return new X509Certificate2(certificate.Export(X509ContentType.Pfx));
+        // EphemeralKeySet keeps the private key in-process on Linux so TLS tests
+        // do not hit "m_safeCertContext is an invalid handle" after export.
+        return new X509Certificate2(
+            certificate.Export(X509ContentType.Pfx),
+            (string?)null,
+            X509KeyStorageFlags.Exportable | X509KeyStorageFlags.EphemeralKeySet);
     }
 
     public static X509Certificate2 LoadFromFile(string certificatePath, string? password)

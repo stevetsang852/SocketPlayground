@@ -163,5 +163,10 @@ public sealed class LoginAndCertificateTests
         });
 
     private static Func<X509Certificate2?, X509Chain?, SslPolicyErrors, bool> MatchCertificate(X509Certificate2 certificate)
-        => (presentedCertificate, _, _) => presentedCertificate?.Thumbprint == certificate.Thumbprint;
+    {
+        var expectedThumbprint = certificate.Thumbprint;
+        return (presentedCertificate, _, _) =>
+            presentedCertificate is not null
+            && string.Equals(presentedCertificate.Thumbprint, expectedThumbprint, StringComparison.OrdinalIgnoreCase);
+    }
 }

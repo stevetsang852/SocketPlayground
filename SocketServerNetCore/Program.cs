@@ -33,6 +33,9 @@ static async Task<int> RunServerAsync(CommandLineOptions options, CancellationTo
     await server.StartAsync(cancellationToken);
 
     Console.WriteLine($"TCP playground server listening on {options.BindAddress}:{server.Port} with TLS");
+    Console.WriteLine(options.AllowLegacyCommands
+        ? "Legacy commands ENABLED (csharp, upload, wallpapertaskpack)."
+        : "Legacy commands disabled (default). Pass --allow-legacy-commands true to enable.");
     if (!string.IsNullOrWhiteSpace(options.AdminUsername))
     {
         Console.WriteLine("Admin login enabled. After TLS connect, send a login command with role=admin.");
@@ -74,7 +77,8 @@ static TcpPlaygroundServerOptions CreateServerOptions(CommandLineOptions options
         RequireValidClientCertificate = options.RequireValidClientCertificate,
         AuthenticationTimeout = TimeSpan.FromMilliseconds(options.AuthenticationTimeoutMs),
         DefaultCommandTimeout = TimeSpan.FromMilliseconds(options.CommandTimeoutMs),
-        DuplicateSessionPolicy = CommandProtocol.ParseDuplicateSessionPolicy(options.DuplicatePolicy)
+        DuplicateSessionPolicy = CommandProtocol.ParseDuplicateSessionPolicy(options.DuplicatePolicy),
+        AllowLegacyCommands = options.AllowLegacyCommands
     };
 
 static async Task<int> RunScenarioAsync(CommandLineOptions options, CancellationToken cancellationToken)
@@ -108,7 +112,10 @@ static int ShowUsage()
     Console.WriteLine("SocketServerNetCore secure raw TCP playground");
     Console.WriteLine();
     Console.WriteLine("Usage:");
-    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000] [--bind 0.0.0.0] [--auth-secret <value>]");
+    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000] [--bind 0.0.0.0] [--auth-secret <value>] [--allow-legacy-commands true]");
+    Console.WriteLine();
+    Console.WriteLine("  --allow-legacy-commands   false (default). When true, allow csharp/upload/wallpapertaskpack.");
+    Console.WriteLine("                            Also accepts env SOCKET_PLAYGROUND_ALLOW_LEGACY_COMMANDS=true|false.");
     return 1;
 }
 

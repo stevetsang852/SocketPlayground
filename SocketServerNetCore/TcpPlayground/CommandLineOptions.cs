@@ -34,6 +34,8 @@ public sealed class CommandLineOptions
     public string DeviceId { get; init; } = "sample-device";
     public string Role { get; init; } = DeviceRoles.Client;
     public int TokenLifetimeMinutes { get; init; } = 10;
+    /// <summary>Gates csharp/upload/wallpapertaskpack. Default false.</summary>
+    public bool AllowLegacyCommands { get; init; }
 
     public static CommandLineOptions Parse(string[] args)
     {
@@ -100,8 +102,27 @@ public sealed class CommandLineOptions
                 : "reject-new",
             DeviceId = values.TryGetValue("device-id", out var deviceId) ? deviceId : "sample-device",
             Role = values.TryGetValue("role", out var role) ? role : DeviceRoles.Client,
-            TokenLifetimeMinutes = GetInt(values, "token-lifetime-minutes", 10)
+            TokenLifetimeMinutes = GetInt(values, "token-lifetime-minutes", 10),
+            AllowLegacyCommands = ResolveAllowLegacyCommands(values)
         };
+    }
+
+
+    private static bool ResolveAllowLegacyCommands(IReadOnlyDictionary<string, string> values)
+    {
+        if (values.TryGetValue("allow-legacy-commands", out var cliValue)
+            && bool.TryParse(cliValue, out var cliParsed))
+        {
+            return cliParsed;
+        }
+
+        var env = Environment.GetEnvironmentVariable("SOCKET_PLAYGROUND_ALLOW_LEGACY_COMMANDS");
+        if (!string.IsNullOrWhiteSpace(env) && bool.TryParse(env, out var envParsed))
+        {
+            return envParsed;
+        }
+
+        return false;
     }
 
     private static int GetInt(IReadOnlyDictionary<string, string> values, string key, int defaultValue)

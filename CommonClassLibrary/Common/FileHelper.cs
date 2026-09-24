@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CommonClassLibrary
 {
@@ -20,11 +16,13 @@ namespace CommonClassLibrary
         {
             try
             {
-                string savePath = string.IsNullOrEmpty(props.path) ? $"{Config.Instance.WorkSpaceDir}\\Resources\\temp\\upload" : props.path;
+                string savePath = string.IsNullOrEmpty(props.path)
+                    ? Path.Combine(Config.Instance.WorkSpaceDir, "Resources", "temp", "upload")
+                    : props.path!;
 
                 if (!Directory.Exists(savePath))
                     Directory.CreateDirectory(savePath);
-                string patchPath = $"{savePath}\\{props.name}";
+                string patchPath = Path.Combine(savePath, props.name ?? "upload.bin");
                 BytesHelper.ByteArrayToFile(patchPath, props.file);
             }
             catch

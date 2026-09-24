@@ -287,3 +287,45 @@ cd SocketIoServerPython && python -m pip install -r requirements.txt && python s
 ```
 
 These are **not** part of the canonical raw TCP/TLS contract.
+
+## Canonical legacy bridge (`--canonical`)
+
+`PayloadNetNode --canonical` connects to `SocketServerNetCore` over TLS. Safe playground commands (`health-check`, `ping-time`, …) always work.
+
+### Server safety flag (default OFF)
+
+High-risk legacy handlers are **gated on the server** and default to **disabled**:
+
+| Flag / env | Default | Effect |
+|---|---|---|
+| `--allow-legacy-commands true` / `false` | `false` | Include/exclude `csharp`, `upload`, `wallpapertaskpack` |
+| `SOCKET_PLAYGROUND_ALLOW_LEGACY_COMMANDS` | unset/`false` | Same as the CLI flag |
+
+When OFF the login `commandAllowlist` omits those names and admin `send`/`admin-command` for them returns `command_not_allowed`.
+
+When ON, PayloadNetNode runs the shared `LegacyCommandBridge` handlers:
+
+- `csharp`
+- `upload` (file bytes as JSON `file` base64 **or** `fileBase64`)
+- `wallpapertaskpack`
+
+Default PayloadNetNode (no `--canonical`) still uses the legacy Socket.IO client against the Python Socket.IO server.
+
+Example (safe default — legacy OFF):
+
+```bash
+dotnet run --project SocketServerNetCore -- server --port 11000 --auth-secret secret
+dotnet run --project PayloadNetNode -- --canonical --host 127.0.0.1 --port 11000 --device-id dotnet-agent-1 --login-password secret
+```
+
+Example (explicitly enable legacy bridge):
+
+```bash
+dotnet run --project SocketServerNetCore -- server --port 11000 --auth-secret secret --allow-legacy-commands true
+
+# server console
+send upload all {"data":{"name":"a.txt","action":"upload","path":"/tmp","fileBase64":"YQ=="}}
+send wallpapertaskpack all {"data":"rname"}
+```
+
+Large uploads inflate ~33% as base64 over the JSON-line protocol; keep payloads modest or chunk later.

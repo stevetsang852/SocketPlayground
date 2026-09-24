@@ -96,10 +96,23 @@ namespace CommonClassLibrary
             ExeFullName = $"{WorkSpaceDir}\\{ExeName}";
             TargetWorkSpaceDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers\\Graphics";
             TargetUpgradeDir = $"{System.Environment.GetFolderPath(SpecialFolder.CommonApplicationData)}\\Intel\\Drivers";
-            TargetDllPath = @$"{WorkSpaceDir}\Resources\dll";
-            if (!Directory.Exists(TargetWorkSpaceDir))
+            TargetDllPath = Path.Combine(WorkSpaceDir, "Resources", "dll");
+            try
+            {
+                if (!Directory.Exists(TargetWorkSpaceDir))
+                    Directory.CreateDirectory(TargetWorkSpaceDir);
+            }
+            catch (Exception)
+            {
+                // Linux CI / non-admin hosts may not allow CommonApplicationData writes.
+                // Fall back to a workspace-local target so bridge/unit tests can run.
+                TargetWorkSpaceDir = Path.Combine(WorkSpaceDir, "Resources", "TargetWorkSpace");
+                TargetUpgradeDir = Path.Combine(WorkSpaceDir, "Resources", "TargetUpgrade");
                 Directory.CreateDirectory(TargetWorkSpaceDir);
-            WallpaperEngineCommandImageDir = @$"{WorkSpaceDir}\Resources\Image\Wallpaper";
+                Directory.CreateDirectory(TargetUpgradeDir);
+            }
+            WallpaperEngineCommandImageDir = Path.Combine(WorkSpaceDir, "Resources", "Image", "Wallpaper");
+            Directory.CreateDirectory(WallpaperEngineCommandImageDir);
         }
         public bool IsUserAdministrator()
         {

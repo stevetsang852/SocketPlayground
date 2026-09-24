@@ -72,6 +72,8 @@ namespace CommonClassLibrary
         public int StartProcessWaitTimeoutMs = 60 * 1000;
         /// <summary>When true (default), StartProcessCommand uses Verb=runas (current Windows happy-path).</summary>
         public bool StartProcessUseRunAs = true;
+        /// <summary>How many *_patch directories under TargetUpgradeDir to retain (ClearOtherPatch). Default 5.</summary>
+        public int PatchRetentionCount = 5;
         public EnumAppMode AppMode = Config.IsDebug() ? EnumAppMode.DEBUG : EnumAppMode.JACK;
         #endregion
 

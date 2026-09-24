@@ -28,21 +28,15 @@ catch (OperationCanceledException)
 
 static async Task<int> RunServerAsync(CommandLineOptions options, CancellationToken cancellationToken)
 {
-    var serverOptions = new TcpPlaygroundServerOptions
-    {
-        Port = options.Port,
-        Backlog = options.Backlog,
-        ServerCertificate = ResolveServerCertificate(options),
-        AuthenticationSecret = ResolveAuthenticationSecret(options),
-        AuthenticationTimeout = TimeSpan.FromMilliseconds(options.AuthenticationTimeoutMs),
-        DefaultCommandTimeout = TimeSpan.FromMilliseconds(options.CommandTimeoutMs),
-        DuplicateSessionPolicy = CommandProtocol.ParseDuplicateSessionPolicy(options.DuplicatePolicy)
-    };
-
+    var serverOptions = CreateServerOptions(options);
     await using var server = new TcpPlaygroundServer(serverOptions);
     await server.StartAsync(cancellationToken);
 
     Console.WriteLine($"TCP playground server listening on 127.0.0.1:{server.Port} with TLS");
+    if (!string.IsNullOrWhiteSpace(options.AdminUsername))
+    {
+        Console.WriteLine("Admin login enabled. After TLS connect, send a login command with role=admin.");
+    }
 
     try
     {
@@ -65,6 +59,22 @@ static async Task<int> RunServerAsync(CommandLineOptions options, CancellationTo
     await server.StopAsync(CancellationToken.None);
     return 0;
 }
+
+static TcpPlaygroundServerOptions CreateServerOptions(CommandLineOptions options)
+    => new()
+    {
+        Port = options.Port,
+        Backlog = options.Backlog,
+        ServerCertificate = ResolveServerCertificate(options),
+        AuthenticationSecret = ResolveAuthenticationSecret(options),
+        AdminUsername = options.AdminUsername,
+        AdminPassword = options.AdminPassword,
+        RequireClientCertificate = options.RequireClientCertificate,
+        RequireValidClientCertificate = options.RequireValidClientCertificate,
+        AuthenticationTimeout = TimeSpan.FromMilliseconds(options.AuthenticationTimeoutMs),
+        DefaultCommandTimeout = TimeSpan.FromMilliseconds(options.CommandTimeoutMs),
+        DuplicateSessionPolicy = CommandProtocol.ParseDuplicateSessionPolicy(options.DuplicatePolicy)
+    };
 
 static async Task<int> RunScenarioAsync(CommandLineOptions options, CancellationToken cancellationToken)
 {
@@ -97,27 +107,13 @@ static int ShowUsage()
     Console.WriteLine("SocketServerNetCore secure raw TCP playground");
     Console.WriteLine();
     Console.WriteLine("Usage:");
-    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000] [--auth-secret <value>]");
+    Console.WriteLine("  dotnet run --project SocketServerNetCore -- server [--port 11000] [--auth-secret <value>] [--admin-user admin] [--admin-password <value>]");
     Console.WriteLine("  dotnet run --project SocketServerNetCore -- scenario [--report artifacts/socket-playground-report.json] [--auth-secret <value>]");
     Console.WriteLine("  dotnet run --project SocketServerNetCore -- issue-token --device-id agent-1 --role client --auth-secret <value>");
     Console.WriteLine();
-    Console.WriteLine("Modes:");
-    Console.WriteLine("  server       Starts the TLS-protected raw TCP command broker on loopback.");
-    Console.WriteLine("  scenario     Runs automated authenticated client scenarios and writes a JSON report.");
-    Console.WriteLine("  issue-token  Prints a short-lived HMAC-signed token for a device/role pair.");
-    Console.WriteLine();
-    Console.WriteLine("Server console commands:");
-    Console.WriteLine("  help / list / send <command> [all|<deviceId>] / quit");
-    Console.WriteLine();
-    Console.WriteLine("Security options:");
-    Console.WriteLine("  --tls true                   Enables SslStream over the raw TCP transport (required).");
-    Console.WriteLine("  --tls-cert-path <path>       Loads a PFX development certificate for the server.");
-    Console.WriteLine("  --tls-cert-password <value>  Password for the PFX file.");
-    Console.WriteLine("  --auth-secret <value>        Shared development secret used to sign short-lived tokens.");
-    Console.WriteLine("  --auth-timeout-ms <value>    Authentication deadline in milliseconds.");
-    Console.WriteLine("  --command-timeout-ms <value> Default command result timeout in milliseconds.");
-    Console.WriteLine("  --duplicate-policy <value>   reject-new (default) or replace-existing.");
-    Console.WriteLine("  --allow-untrusted true       Allows self-signed development certificates for manual clients.");
+    Console.WriteLine("After TLS connect, clients may send either authenticate or login.");
+    Console.WriteLine("login payload: { deviceId, username, password, role }");
+    Console.WriteLine("role=admin requires --admin-user / --admin-password.");
     return 1;
 }
 
